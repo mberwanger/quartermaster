@@ -11,6 +11,10 @@ import (
 // generated files are unambiguous.
 const CursorRulesDir = ".cursor/rules/qm"
 
+// CursorSkillsDir is where this harness looks for skills. It reads several
+// locations; this is the one it owns.
+const CursorSkillsDir = ".cursor/skills"
+
 // cursor renders Cursor .mdc rule files.
 //
 // Cursor's frontmatter has a globs field it watches and an alwaysApply flag. A
@@ -21,6 +25,9 @@ type cursor struct{}
 
 func (cursor) Name() string { return "cursor" }
 
+// IgnorePaths covers the rules directory. Skills are not listed: like every
+// harness, this one reads a skill's identity from its directory, so generated
+// skills sit beside hand-written ones and ignore themselves.
 func (cursor) IgnorePaths() []string { return []string{CursorRulesDir + "/"} }
 
 func (cursor) Render(in Input) (Output, error) {
@@ -31,6 +38,13 @@ func (cursor) Render(in Input) (Output, error) {
 			Body: renderCursorRule(d),
 		})
 	}
+
+	// This harness requires a skill's name to match its directory, which is
+	// already true: both come from the same field.
+	for _, s := range in.Skills {
+		files = append(files, skillFiles(CursorSkillsDir+"/"+s.Name, s, func(*bytes.Buffer) {})...)
+	}
+
 	return Output{Files: files}, nil
 }
 

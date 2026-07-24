@@ -59,7 +59,7 @@ func TestRegistry(t *testing.T) {
 	if _, ok := Get("nope"); ok {
 		t.Fatal("unknown target resolved")
 	}
-	if got := Names(); !slices.Equal(got, []string{"agents-md", "claude", "cursor"}) {
+	if got := Names(); !slices.Equal(got, []string{"agents-md", "claude", "codex", "cursor"}) {
 		t.Fatalf("Names() = %v", got)
 	}
 }

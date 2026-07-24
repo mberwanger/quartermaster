@@ -69,14 +69,6 @@ func TestSkillDirectoryIgnoresItself(t *testing.T) {
 	}
 }
 
-// Cursor has no skills concept; it must not invent files for them.
-func TestCursorIgnoresSkills(t *testing.T) {
-	out, _ := cursor{}.Render(Input{Skills: []Skill{{ID: "skills.x", Name: "x"}}})
-	if len(out.Files) != 0 {
-		t.Fatalf("cursor rendered %d files for a skill, want 0", len(out.Files))
-	}
-}
-
 func keysOf(m map[string]string) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
