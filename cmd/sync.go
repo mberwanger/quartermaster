@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -106,6 +107,13 @@ func writeReport(out io.Writer, r *plan.Result, pruned int) {
 		fmt.Fprintf(&b, "  rulesets  %s\n", strings.Join(bd.Rulesets, ", "))
 	}
 	fmt.Fprintf(&b, "  → rules       %d resident, %d scoped  (%d B resident)\n", resident, scoped, r.ResidentBytes)
+	if len(r.Skills) > 0 {
+		var assets int
+		for _, s := range r.Skills {
+			assets += len(s.Assets)
+		}
+		fmt.Fprintf(&b, "  → skills      %d on demand (%d asset file(s))\n", len(r.Skills), assets)
+	}
 	fmt.Fprintf(&b, "  → knowledge   %d docs retrievable\n", len(r.Knowledge))
 	for _, blk := range r.Blocks {
 		fmt.Fprintf(&b, "  → %-11s managed block updated\n", blk.Path)
@@ -124,6 +132,10 @@ func materialize(dir string, outputs map[string][]byte, prior []string) (int, er
 		return 0, err
 	}
 	defer func() { _ = r.Close() }()
+
+	if err := guardHandWritten(r, outputs, prior); err != nil {
+		return 0, err
+	}
 
 	for _, p := range keys(outputs) {
 		if err := mkdirAll(r, path.Dir(p)); err != nil {
@@ -172,6 +184,43 @@ func applyBlocks(dir string, blocks []target.Block) error {
 		if err := r.WriteFile(blk.Path, []byte(next), 0o644); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// guardHandWritten refuses to overwrite a file that Quartermaster did not write.
+//
+// Rules live under a directory this tool owns whole, so they cannot collide. A
+// skill cannot: the harness reads the directory name as the skill's identity, so
+// a generated skill sits directly beside one somebody wrote. Silently replacing
+// that would be the worst kind of failure, because the author would only notice
+// when their skill stopped saying what they wrote.
+//
+// The check runs before anything is written, so a conflict leaves the tree
+// untouched rather than half-synced.
+func guardHandWritten(r *os.Root, outputs map[string][]byte, prior []string) error {
+	ours := make(map[string]bool, len(prior))
+	for _, p := range prior {
+		ours[p] = true
+	}
+
+	var clashes []string
+	for _, p := range keys(outputs) {
+		if !strings.HasSuffix(p, "/SKILL.md") || ours[p] {
+			continue
+		}
+		existing, err := r.ReadFile(p)
+		if err != nil {
+			continue // absent, or unreadable and the write will say so
+		}
+		if !bytes.Contains(existing, []byte(target.GeneratedMarker)) {
+			clashes = append(clashes, path.Dir(p))
+		}
+	}
+
+	if len(clashes) > 0 {
+		return fmt.Errorf("refusing to overwrite hand-written skill(s) at %s; rename the skill in the store, or remove the directory to let it be managed",
+			strings.Join(clashes, ", "))
 	}
 	return nil
 }

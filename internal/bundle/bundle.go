@@ -132,6 +132,18 @@ func Build(opts Options) (*Bundle, error) {
 		}
 	}
 
+	// A skill's assets travel with it rather than standing alone, so they are
+	// carried into the tree but never catalogued and never held to the
+	// frontmatter rule.
+	skillDirs, skillPaths := opts.Config.SkillDirs(docs)
+	kept := docs[:0]
+	for _, d := range docs {
+		if !config.IsAsset(d.Path, skillDirs, skillPaths) {
+			kept = append(kept, d)
+		}
+	}
+	docs = kept
+
 	for _, d := range docs {
 		if d.Frontmatter == nil {
 			return nil, fmt.Errorf("%s: no frontmatter, run validate", d.Path)

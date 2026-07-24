@@ -70,6 +70,17 @@ func Run(root string, cfg *config.Config) (Result, error) {
 		}
 	}
 
+	// A skill's assets are part of the skill, not documents of their own, so
+	// they are not held to the frontmatter rule.
+	skillDirs, skillPaths := cfg.SkillDirs(docs)
+	kept := docs[:0]
+	for _, d := range docs {
+		if !config.IsAsset(d.Path, skillDirs, skillPaths) {
+			kept = append(kept, d)
+		}
+	}
+	docs = kept
+
 	var res Result
 	ids := make(map[string]string, len(docs))
 

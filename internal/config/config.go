@@ -13,10 +13,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mberwanger/quartermaster/internal/doc"
 	"github.com/mberwanger/quartermaster/internal/gate"
 )
 
@@ -43,6 +45,48 @@ type Config struct {
 	Controls []string `yaml:"controls"`
 	// Requires is what a document must be to become a rule.
 	Requires gate.Gate `yaml:"requires"`
+	// Skills identifies which documents are skills. A skill is a directory
+	// rather than a file: everything beside the skill document travels with it
+	// as an asset and needs no frontmatter of its own, because a skill is a unit
+	// an agent loads whole rather than a topic it reads.
+	//
+	// It is a predicate rather than a path glob, so a store says what a skill is
+	// in its own vocabulary, the same way it says what may become a rule.
+	Skills gate.Gate `yaml:"skills"`
+}
+
+// SkillDirs returns the directory of every skill document, which is what makes
+// the files beside it assets. Paths of the skill documents themselves are
+// returned too, so a caller can tell a skill from its own asset.
+func (c *Config) SkillDirs(docs []doc.Doc) (dirs, skillPaths map[string]bool) {
+	dirs, skillPaths = map[string]bool{}, map[string]bool{}
+	if c.Skills.Empty() {
+		return dirs, skillPaths
+	}
+	for _, d := range docs {
+		if d.Frontmatter == nil {
+			continue
+		}
+		if ok, _ := c.Skills.Allows(d.Frontmatter); ok {
+			dirs[path.Dir(d.Path)] = true
+			skillPaths[d.Path] = true
+		}
+	}
+	return dirs, skillPaths
+}
+
+// IsAsset reports whether a path belongs to a skill rather than standing on its
+// own. A skill document is not an asset of its own directory.
+func IsAsset(rel string, dirs, skillPaths map[string]bool) bool {
+	if len(dirs) == 0 || skillPaths[rel] {
+		return false
+	}
+	for dir := range dirs {
+		if strings.HasPrefix(rel, dir+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // defaultInclude is the include set for a store that declares none.

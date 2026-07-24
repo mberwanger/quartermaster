@@ -44,6 +44,10 @@ type Bundle struct {
 	Digest string `yaml:"digest"`
 	// Rulesets names the selections to apply from this bundle.
 	Rulesets []string `yaml:"rulesets"`
+	// Skills names the skills to materialize, by document id. A skill is loaded
+	// on demand rather than pushed at the agent, so it costs no context until it
+	// is chosen and is never counted against the resident budget.
+	Skills []string `yaml:"skills"`
 	// Knowledge scopes which of the bundle's documents are written to the
 	// knowledge tree, matching on any frontmatter field. Empty means all of
 	// them.
