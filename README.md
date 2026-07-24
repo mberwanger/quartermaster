@@ -146,9 +146,14 @@ by a hook in your agent tool. For Claude Code, add to `.claude/settings.json`:
 }
 ```
 
-The hook records a document id, the bundle digest, the repository, and a
-timestamp. It never records prompt or file content, and anything outside the
-knowledge tree is ignored.
+The hook records a document id, every installed bundle, the repository, the
+worktree, and a timestamp. It never records prompt or file content, and anything
+outside the knowledge tree is ignored.
+
+The repository is named by its remote rather than by its path, so every worktree
+of one repository counts as one. That is what makes the cross-repository spread
+mean anything: a document opened in three checkouts of the same repository is one
+repository's worth of evidence, not three.
 
 **What this can and cannot tell you.** It reliably identifies documents nobody
 ever opens — which usually means the `description` is wrong, since that is all an

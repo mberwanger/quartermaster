@@ -96,6 +96,29 @@ func TestInstallHooks(t *testing.T) {
 	}
 }
 
+// Git resolves hooks against the shared git directory, so installing into a
+// linked worktree's own git directory would write a hook git never runs.
+func TestInstallHooksFromWorktreeLandsInTheSharedDir(t *testing.T) {
+	main, linked := worktreePair(t, "")
+
+	installed, skipped, err := InstallHooks(linked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installed) != 2 || len(skipped) != 0 {
+		t.Fatalf("installed=%v skipped=%v, want 2/0", installed, skipped)
+	}
+
+	for _, name := range managedHooks {
+		if _, err := os.Stat(filepath.Join(main, ".git", "hooks", name)); err != nil {
+			t.Errorf("%s not installed in the shared git directory: %v", name, err)
+		}
+		if _, err := os.Stat(filepath.Join(main, ".git", "worktrees", "feature", "hooks", name)); err == nil {
+			t.Errorf("%s installed where git will not look for it", name)
+		}
+	}
+}
+
 func TestInstallHooksNotAGitRepo(t *testing.T) {
 	installed, skipped, err := InstallHooks(t.TempDir())
 	if err != nil {

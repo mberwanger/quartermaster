@@ -112,35 +112,17 @@ func InstallHooks(dir string) (installed, skipped []string, err error) {
 	return installed, skipped, nil
 }
 
-// hooksDir resolves the git hooks directory for dir, handling both a normal
-// .git directory and a .git file that points elsewhere (worktrees, submodules).
+// hooksDir resolves the hooks directory git will actually run for dir.
+//
+// Hooks are per repository rather than per worktree: git resolves them against
+// the shared git directory, so a hook written into a linked worktree's own git
+// directory is never run and the worktree silently stops syncing. Installing
+// into the shared directory is also why this only has to happen once per
+// repository however many worktrees it has.
 func hooksDir(dir string) (string, bool, error) {
-	gitPath := filepath.Join(dir, ".git")
-	fi, err := os.Stat(gitPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", false, nil
-		}
+	common, ok, err := commonDir(dir)
+	if err != nil || !ok {
 		return "", false, err
 	}
-
-	if fi.IsDir() {
-		return filepath.Join(gitPath, "hooks"), true, nil
-	}
-
-	// .git is a file of the form "gitdir: <path>".
-	raw, err := os.ReadFile(gitPath) //nolint:gosec // path is the repo's own .git
-	if err != nil {
-		return "", false, err
-	}
-	line := strings.TrimSpace(string(raw))
-	target, ok := strings.CutPrefix(line, "gitdir:")
-	if !ok {
-		return "", false, nil
-	}
-	target = strings.TrimSpace(target)
-	if !filepath.IsAbs(target) {
-		target = filepath.Join(dir, target)
-	}
-	return filepath.Join(target, "hooks"), true, nil
+	return filepath.Join(common, "hooks"), true, nil
 }

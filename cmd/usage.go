@@ -13,6 +13,7 @@ import (
 	"github.com/mberwanger/quartermaster/internal/doc"
 	"github.com/mberwanger/quartermaster/internal/manifest"
 	"github.com/mberwanger/quartermaster/internal/plan"
+	"github.com/mberwanger/quartermaster/internal/repo"
 	"github.com/mberwanger/quartermaster/internal/state"
 	"github.com/mberwanger/quartermaster/internal/usage"
 )
@@ -131,17 +132,23 @@ func record(path string) {
 		return
 	}
 
-	var digest string
-	if s, err := state.Load(root); err == nil && len(s.Bundles) > 0 {
-		digest = s.Bundles[0].Digest
+	// Every installed bundle, not the first: a repository composes sources in
+	// precedence order and the state file does not say which one carried this
+	// document, so naming one of them would be a guess recorded as a fact.
+	var bundles []usage.Bundle
+	if s, err := state.Load(root); err == nil {
+		for _, b := range s.Bundles {
+			bundles = append(bundles, usage.Bundle{Source: b.Source, Digest: b.Digest})
+		}
 	}
 
 	_ = usage.Append(usage.Event{
-		ID:     id,
-		Repo:   root,
-		Digest: digest,
-		Time:   time.Now().UTC(),
-		Event:  usage.EventOpen,
+		ID:       id,
+		Repo:     repo.Identity(root),
+		Worktree: root,
+		Bundles:  bundles,
+		Time:     time.Now().UTC(),
+		Event:    usage.EventOpen,
 	})
 }
 

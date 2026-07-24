@@ -5,10 +5,10 @@
 // repositories is a stronger candidate than one opened twelve times in a single
 // repository, and a per-repository log cannot tell those apart.
 //
-// An event carries a document id, the bundle it came from, the repository, a
-// timestamp, and the kind of event. It never carries prompt or file content. If
-// aggregation across a team is ever built on top of this, it stays opt-in and
-// must never feed anything evaluative about a person.
+// An event carries a document id, the bundles installed where it was read, the
+// repository, a timestamp, and the kind of event. It never carries prompt or
+// file content. If aggregation across a team is ever built on top of this, it
+// stays opt-in and must never feed anything evaluative about a person.
 package usage
 
 import (
@@ -27,11 +27,29 @@ const EventOpen = "open"
 
 // Event is one line of the log.
 type Event struct {
-	ID     string    `json:"id"`
-	Repo   string    `json:"repo"`
-	Digest string    `json:"digest,omitempty"`
-	Time   time.Time `json:"ts"`
-	Event  string    `json:"event"`
+	ID string `json:"id"`
+	// Repo identifies the repository rather than the checkout, so every
+	// worktree of one repository counts as one. See repo.Identity.
+	Repo string `json:"repo"`
+	// Worktree is the checkout the read happened in. It is a separate dimension
+	// from Repo and never a substitute for it: a document read in three
+	// worktrees of one repository is one repository's worth of evidence.
+	Worktree string `json:"worktree,omitempty"`
+	// Bundles is every bundle installed in that repository at the time, in
+	// manifest order. A repository composes several sources and nothing here
+	// knows which one carried the document, so recording only the first would
+	// attribute the read to a bundle that may not contain it.
+	Bundles []Bundle  `json:"bundles,omitempty"`
+	Time    time.Time `json:"ts"`
+	Event   string    `json:"event"`
+}
+
+// Bundle names one installed bundle. The digest is the identity; the source is
+// carried with it so a later reader can tell where it came from without the
+// repository's state file, which will have moved on by then.
+type Bundle struct {
+	Source string `json:"source"`
+	Digest string `json:"digest"`
 }
 
 // Dir returns the log directory. QM_USAGE_DIR overrides it, which is what tests
