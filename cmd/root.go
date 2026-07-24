@@ -80,6 +80,7 @@ model call is made at any point.`,
 		newStatusCmd().cmd,
 		newTargetsCmd().cmd,
 		newStatsCmd().cmd,
+		newDigestCmd().cmd,
 		newUsageCmd().cmd,
 		newTraceCmd().cmd,
 	)

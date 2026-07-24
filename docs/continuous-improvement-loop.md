@@ -577,7 +577,11 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 2. Resolve the remaining blocking open question, the schema reduction. Question 1 is closed.
 3. Facet record schema, version 1. Freeze the identifier contract.
 4. **`qm trace record` done 2026-07-24**, spooling to `~/.quartermaster/spool/pending.jsonl` with `QM_TRACE_DIR` to override. Identity comes from `repo.Identity`, the branch from the worktree's own git directory, and every installed bundle rather than the first. The SessionEnd hook is documented in the README for hand-wiring, exactly as the usage hook is; installing it automatically waits on open question 8.
-5. `qm digest` including `--backfill`, run immediately against existing transcripts to build a corpus. Resolve each transcript's `cwd` through `repo.Identity` rather than trusting the harness project directory.
+5. **`qm digest` done 2026-07-24, structurally.** It derives a facet by counting, matching, and ordering what the transcript already records: the discovery span, which knowledge documents were opened, how each was arrived at, whether opening one ended the search, and what the session produced. No model is called, so a digest costs nothing and can be re-run over the whole corpus whenever the derivation improves. `questions[]` stays empty rather than guessed, and every record says in `source` how it was made.
+
+   That is a deliberate narrowing of what section 4.4 describes, and the reason to record it: Quartermaster's stated commitment is that it makes no model calls and is reproducible from its inputs. A per-session model call breaks that, and open question 6 has not been decided. The seam is left clean, so the semantic pass adds `questions[]` and flips `source` without redoing any of this.
+
+   `--backfill` sweeps the repository it runs in, resolved through `repo.Identity` so every worktree of it is included and the harness's path-keyed project directories never reach a record. `--all` widens it to the machine. Scoping the sweep costs no cross-repository signal, because records accumulate in one directory across runs.
 6. Design `qm gaps` against that real corpus rather than against an imagined one.
 7. Capture for two weeks with the bundle held constant to establish the discovery-span baseline. Confirm first that the configured target actually names the knowledge root, per section 2.4.
 8. `qm gaps` with the content versus discoverability split and drafts output.
