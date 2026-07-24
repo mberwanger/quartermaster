@@ -483,9 +483,13 @@ The two orthogonal axes the draft identified are still real, and the ones that r
 - **Lifecycle.** Is this a record of a moment (immutable history) or current truth (living, revisable)?
 - **Consumer action.** Does the consumer load this as a rule, install it as a skill, or retrieve it as knowledge?
 
-A plausible reduced enum, given the distribution in 6.3: `concept`, `reference`, `decision`, `policy`, `skill`, `agent`. `guide` folds into `reference` and `runbook` folds into `reference`, neither having any documents. `strategy` folds into `concept`, likewise empty. `policy` stays because six documents use it and because it is the type the voice rules carry. `decision` remains the single immutable type. Six values, each of which changes what a consumer does.
+**Resolved 2026-07-24, and recorded as `records.frontmatter-reduced-to-what-is-read`.** The enum is five values: `concept`, `reference`, `record`, `skill`, `agent`.
 
-Cutting `runbook` and `guide` means editing `freshness.json`, which names both, and it is worth adding the windows that file is missing for `skill` and `agent` in the same change.
+`runbook`, `guide`, and `strategy` folded into `reference` and `concept`, none having any documents. `policy` folded into `concept`, which is the change worth explaining: it was the one value with documents behind it, and it still did not survive. What it was trying to say is "this document is meant to be pushed at you," and pushing is decided by ruleset membership, the only place that can act on it. A policy nobody named in a ruleset is a concept with a firmer tone. `voice.base` is now a concept and is still a rule.
+
+`decision` became `record`, because every document in a store is downstream of a decision, so the word separated nothing. What the type marks is a write rule: this is the one kind of document where the repair for being wrong is to write a new one rather than edit this one. That is also the property the freshness audit keys on, since a document that must not be edited cannot go stale.
+
+The required set is six: `id`, `title`, `description`, `type`, `status`, `provenance`. Deleted: `capability`, `resource`, `created`, `related`, `tags`. Demoted to optional: `domain`, `owner`. `freshness.json` follows the new enum and gained the windows it was missing for `skill` and `agent`.
 
 ### 6.5 Fields with new or changed jobs
 
@@ -555,7 +559,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 ## 10. Open questions for implementation
 
 1. ~~Rules and skills as store documents with their own types, or as a separate source composed at bundle build.~~ **Resolved by verification.** Skills and agents are types; rules are ruleset membership. One pipeline, already built. See section 6.4.
-2. The reduced frontmatter schema, output of the section 6.3 audit. **Blocking.** Section 6.3 now supplies the data and section 6.4 a proposed six-value enum; what remains is the decision and the migration.
+2. ~~The reduced frontmatter schema, output of the section 6.3 audit.~~ **Resolved 2026-07-24.** Five types, six required fields, five fields deleted, two demoted. Migrated and recorded. See section 6.4. **No blocking questions remain.**
 3. Whether unattended agents receive skills, and if so which, by role.
 4. Precedence and contradiction handling between the local overlay and upstream bundles. Section 4.9.
 5. The retention window for raw local transcripts.
@@ -563,6 +567,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 7. What defines "first useful action" precisely enough to compute discovery span consistently across session shapes.
 8. Whether harness hooks install per worktree or at user level, and how a worktree that is recording nothing gets detected. Section 4.11. Now the only unresolved worktree question, and it is the one Quartermaster has never had to answer, since it has never written a harness settings file.
 9. Whether `qm gaps` clustering runs locally or calls a model, and the cost implications of re-clustering a growing window each run.
+10. **How a repository selects what it gets, which is currently three idioms for four deliveries.** Designed and deliberately deferred; see [Packages](packages.md). The only thing this feature needs from it: a facet record names the packages a session had, and today that field is called `rulesets`. Either name is a rename away, so it does not block section 4.5.
 
 ---
 
@@ -576,7 +581,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 6. Design `qm gaps` against that real corpus rather than against an imagined one.
 7. Capture for two weeks with the bundle held constant to establish the discovery-span baseline. Confirm first that the configured target actually names the knowledge root, per section 2.4.
 8. `qm gaps` with the content versus discoverability split and drafts output.
-9. Frontmatter audit and schema reduction, recorded as a decision.
+9. ~~Frontmatter audit and schema reduction, recorded as a decision.~~ Done 2026-07-24, out of order, because the audit was what closed question 1 and the window for a breaking schema change is closing.
 10. Removal signals and `qm prune`. Rule signals join on `rulesets.json`, not on document type.
 11. SessionStart freshness check.
 

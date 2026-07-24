@@ -2,11 +2,9 @@
 id: domain.topic.slug
 title: A short human title
 description: One or two sentences written for someone deciding whether to open this, stating what it establishes rather than what it covers.
-domain: engineering
 type: concept
 status: draft
 provenance: asserted
-owner: your-team
 ---
 
 # A short human title

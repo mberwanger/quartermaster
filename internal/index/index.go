@@ -50,11 +50,16 @@ type File struct {
 var headings = []struct{ docType, heading string }{
 	{"concept", "Concepts"},
 	{"reference", "References"},
+	{"record", "Records"},
+	{"skill", "Skills"},
+	{"agent", "Agents"},
+	// Types no store here uses, kept because the enum belongs to each store's
+	// own schema rather than to Quartermaster. A store that declares one of
+	// these gets a section instead of falling into Other.
 	{"runbook", "Runbooks"},
-	{"decision", "Decisions"},
 	{"guide", "Guides"},
 	{"policy", "Policies"},
-	{"skill", "Skills"},
+	{"decision", "Decisions"},
 	{"strategy", "Strategies"},
 }
 
