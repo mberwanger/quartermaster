@@ -174,6 +174,24 @@ Remote sources are cached by digest under `~/.quartermaster/cache` (override wit
 `QM_CACHE_DIR`), so many repositories on the same bundle pull it once. `file://` is never
 cached: a local tree is what you edit, and every save has to be visible immediately.
 
+## As a library
+
+An agent can consume a bundle directly instead of reading files a sync wrote.
+The `qm` package is the same implementation the CLI uses, so a document rendered
+into an agent's instructions is the same text it would become as a rule file.
+
+```go
+bundle, _ := qm.Open("oci://ghcr.io/org/knowledge:v1")
+
+instructions, _ := bundle.Instruction("engineering", "billing") // the agent's instructions
+catalog := bundle.Catalog()                                     // tool: list by id + description
+doc, _  := bundle.Document("eng.error-handling")                // tool: fetch one
+```
+
+It imports no agent framework: an agent wires these into its own instructions and
+tools. Pin `bundle.Digest()` in the agent's configuration so knowledge and code
+version independently.
+
 ## Development
 
 ```

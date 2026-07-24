@@ -143,11 +143,6 @@ func renderClaudeRule(d Doc) []byte {
 	}
 	b.WriteString("---\n\n")
 
-	prose := bytes.TrimLeft(d.Prose, "\n")
-	b.Write(prose)
-	if !bytes.HasSuffix(prose, []byte("\n")) {
-		b.WriteByte('\n')
-	}
-
+	b.Write(RuleBody(d.Prose))
 	return b.Bytes()
 }

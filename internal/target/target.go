@@ -132,7 +132,7 @@ type Target interface {
 
 // registry holds every built-in target.
 var registry = func() map[string]Target {
-	ts := []Target{claude{}, cursor{}, codex{}, agentsMD{}}
+	ts := []Target{claude{}, cursor{}, codex{}, copilot{}, agentsMD{}}
 	m := make(map[string]Target, len(ts))
 	for _, t := range ts {
 		m[t.Name()] = t
