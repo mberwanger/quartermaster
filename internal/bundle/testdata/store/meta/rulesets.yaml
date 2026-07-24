@@ -1,0 +1,8 @@
+core:
+  docs:
+    - id: eng.logging
+    - id: eng.errors
+go-service:
+  docs:
+    - id: eng.logging
+      scope: ["**/*.go"]

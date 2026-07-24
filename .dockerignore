@@ -1,0 +1,19 @@
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Git
+.github/
+**/.gitattributes
+**/.gitignore
+
+# Build artifacts
+build/
+dist/
+completions/
+manpages/
+
+# Config/secrets
+.env*
+.claude/

@@ -1,0 +1,158 @@
+version: 2
+
+project_name: quartermaster
+
+env:
+  - CGO_ENABLED=0
+
+dist: dist
+
+git:
+  tag_sort: -version:refname
+
+gomod:
+  proxy: false
+
+report_sizes: true
+
+before:
+  hooks:
+    - go mod download
+    - ./scripts/completions.sh
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-dev"
+
+builds:
+  - id: qm
+    binary: qm
+    main: .
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.FullCommit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+
+universal_binaries:
+  - replace: false
+
+archives:
+  - id: qm
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}-v{{ .Version }}_{{ .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    wrap_in_directory: true
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - completions/*
+
+nfpms:
+  - id: qm
+    file_name_template: "{{ .ConventionalFileName }}"
+    maintainer: Martin Berwanger <martin.berwanger@gmail.com>
+    description: Quartermaster - materialize a knowledge bundle into a repository
+    homepage: https://github.com/mberwanger/quartermaster
+    license: Apache-2.0
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./completions/qm.bash
+        dst: /usr/share/bash-completion/completions/qm
+        file_info:
+          mode: 0644
+      - src: ./completions/qm.fish
+        dst: /usr/share/fish/vendor_completions.d/qm.fish
+        file_info:
+          mode: 0644
+      - src: ./completions/qm.zsh
+        dst: /usr/share/zsh/vendor-completions/_qm
+        file_info:
+          mode: 0644
+      - src: ./LICENSE
+        dst: /usr/share/doc/qm/copyright
+        file_info:
+          mode: 0644
+    formats:
+      - apk
+      - deb
+      - rpm
+      - archlinux
+
+brews:
+  - name: quartermaster
+    repository:
+      owner: mberwanger
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://github.com/mberwanger/quartermaster
+    description: Quartermaster - materialize a knowledge bundle into a repository
+    license: Apache-2.0
+    install: |
+      bin.install "qm"
+      bash_completion.install "completions/qm.bash" => "qm"
+      zsh_completion.install "completions/qm.zsh" => "_qm"
+      fish_completion.install "completions/qm.fish"
+    commit_author:
+      name: goreleaserbot
+      email: martin.berwanger@gmail.com
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^test:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+      - go mod tidy
+  groups:
+    - title: "Features"
+      regexp: '^feat(\([[:word:]]+\))?!?:.+$'
+      order: 100
+    - title: "Security Updates"
+      regexp: '^sec(\([[:word:]]+\))?!?:.+$'
+      order: 200
+    - title: "Bug Fixes"
+      regexp: '^fix(\([[:word:]]+\))?!?:.+$'
+      order: 300
+    - title: "Dependency Updates"
+      regexp: '^(feat|fix)\(deps\)!?:.+$'
+      order: 400
+    - title: "Documentation Updates"
+      regexp: '^doc(\([[:word:]]+\))?!?:.+$'
+      order: 500
+    - title: "Build Process Updates"
+      regexp: '^build(\([[:word:]]+\))?!?:.+$'
+      order: 600
+    - title: "Other Changes"
+      order: 9999
+
+release:
+  prerelease: auto
+  footer: |
+    **Full Changelog**: https://github.com/mberwanger/quartermaster/compare/{{ .PreviousTag }}...{{ .Tag }}

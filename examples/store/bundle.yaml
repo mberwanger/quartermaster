@@ -1,0 +1,13 @@
+name: example-knowledge
+schema: meta/frontmatter.schema.json
+rulesets: meta/rulesets.yaml
+
+include: ["**/*.md"]
+exclude: ["meta/templates/**"]
+
+# What a document must be before any ruleset may turn it into a rule. A draft is
+# still distributed and still readable; it just never loads on its own.
+requires:
+  status: [active]
+  provenance: [verified, decided]
+  visibility: { not: [restricted] }

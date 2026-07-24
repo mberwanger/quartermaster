@@ -1,0 +1,105 @@
+// Package target renders a selection of documents into the files a specific
+// agent harness reads.
+//
+// One canonical document is translated per target. A rule delivered into a
+// Claude Code session and the same rule loaded by another harness are the same
+// text, produced by one implementation, rather than two copies that drift.
+// Adding a harness is one renderer here, not an edit in every consuming
+// repository.
+package target
+
+import "sort"
+
+// File is one rendered output file, with a slash-separated path relative to the
+// repository root. It replaces the whole file, and it is gitignored and prunable
+// generated output.
+type File struct {
+	Path string
+	Body []byte
+}
+
+// Block is a managed region spliced into a committed file, delimited by markers,
+// preserving whatever the author wrote outside them. A block is committed rather
+// than gitignored, so it holds a pointer rather than inlined rules: inlined
+// generated content under version control conflicts on every merge, while a
+// pointer costs a harness one file read and does not conflict. A block is never
+// pruned, because the file around it is the author's.
+type Block struct {
+	Path   string
+	Marker string
+	Body   string
+}
+
+// Output is what a target renders: gitignored files and/or committed blocks.
+type Output struct {
+	Files  []File
+	Blocks []Block
+}
+
+// Doc is one document selected for materialization, resolved to everything a
+// renderer needs: its id, its store path, its scope, its prose, and the bundle
+// it came from. Scope empty means resident — the harness loads it at the start
+// of every session. Digest and Commit travel with the document because a
+// repository may draw from several bundles, and each generated file names the
+// bundle that produced it.
+type Doc struct {
+	ID          string
+	Path        string
+	Description string
+	Scope       []string
+	Prose       []byte
+	Digest      string
+	Commit      string
+}
+
+// Bundle summarizes a resolved source for targets that render a pointer to it
+// rather than the rules themselves.
+type Bundle struct {
+	Source   string
+	Digest   string
+	Rulesets []string
+}
+
+// Input is what a target renders from.
+type Input struct {
+	Docs    []Doc
+	Bundles []Bundle
+}
+
+// Target renders documents into one harness's output.
+type Target interface {
+	// Name is the identifier used in a manifest's targets list.
+	Name() string
+	// Render produces the output for this harness. Paths are repository-relative.
+	Render(Input) (Output, error)
+	// IgnorePaths returns the repository-relative directories this target
+	// generates that should be gitignored. A target whose output is committed
+	// (a managed block) returns nil.
+	IgnorePaths() []string
+}
+
+// registry holds every built-in target.
+var registry = func() map[string]Target {
+	ts := []Target{claude{}, cursor{}, agentsMD{}}
+	m := make(map[string]Target, len(ts))
+	for _, t := range ts {
+		m[t.Name()] = t
+	}
+	return m
+}()
+
+// Get returns the target with the given name.
+func Get(name string) (Target, bool) {
+	t, ok := registry[name]
+	return t, ok
+}
+
+// Names returns every known target name in sorted order.
+func Names() []string {
+	names := make([]string, 0, len(registry))
+	for name := range registry {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
