@@ -152,9 +152,16 @@ func record(path string) {
 	})
 }
 
-// repoRootFor walks up from a path to the repository that declares a manifest.
+// repoRootFor walks up from a file path to the repository that declares a
+// manifest.
 func repoRootFor(path string) (string, bool) {
-	dir := filepath.Dir(path)
+	return repoRootAt(filepath.Dir(path))
+}
+
+// repoRootAt walks up from a directory to the repository that declares a
+// manifest. A session runs somewhere below the root rather than at it, so the
+// walk is what finds the repository the work happened in.
+func repoRootAt(dir string) (string, bool) {
 	for {
 		if _, err := os.Stat(filepath.Join(dir, manifest.FileName)); err == nil {
 			return dir, true

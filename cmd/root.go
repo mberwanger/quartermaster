@@ -87,6 +87,7 @@ model call is made at any point.`,
 		newTargetsCmd().cmd,
 		newStatsCmd().cmd,
 		newUsageCmd().cmd,
+		newTraceCmd().cmd,
 	)
 
 	// Utility commands

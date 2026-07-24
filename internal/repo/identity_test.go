@@ -112,6 +112,33 @@ func TestIdentityWithoutRemote(t *testing.T) {
 	}
 }
 
+// The branch is the one piece of git state a worktree does not share, which is
+// most of the reason to have several, so it must come from the worktree's own
+// git directory rather than the shared one.
+func TestBranchIsPerWorktree(t *testing.T) {
+	main, linked := worktreePair(t, "")
+
+	if got, want := Branch(main), "master"; got != want {
+		t.Errorf("main branch = %q, want %q", got, want)
+	}
+	if got, want := Branch(linked), "feature"; got != want {
+		t.Errorf("linked branch = %q, want %q", got, want)
+	}
+}
+
+func TestBranchDetachedOrAbsent(t *testing.T) {
+	main, _ := worktreePair(t, "")
+	if err := os.WriteFile(filepath.Join(main, ".git", "HEAD"), []byte("9fceb02b0c2f4b1ea0e3b8a4e5c6d7e8f9012345\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := Branch(main); got != "" {
+		t.Errorf("detached head reported branch %q, want none", got)
+	}
+	if got := Branch(t.TempDir()); got != "" {
+		t.Errorf("non-repository reported branch %q, want none", got)
+	}
+}
+
 func TestIdentityOutsideAnyRepository(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "loose-checkout")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -147,7 +174,9 @@ func worktreePair(t *testing.T, remote string) (main, linked string) {
 	}
 	write := map[string]string{
 		filepath.Join(shared, "config"):       config,
+		filepath.Join(shared, "HEAD"):         "ref: refs/heads/master\n",
 		filepath.Join(linkedGit, "commondir"): "../..\n",
+		filepath.Join(linkedGit, "HEAD"):      "ref: refs/heads/feature\n",
 		filepath.Join(linked, ".git"):         "gitdir: " + linkedGit + "\n",
 	}
 	for path, body := range write {

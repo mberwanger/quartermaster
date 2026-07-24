@@ -45,6 +45,29 @@ func Identity(dir string) string {
 	return strings.ToLower(strings.TrimSuffix(baseName(common), ".git"))
 }
 
+// Branch returns the branch checked out at dir, or the empty string when the
+// head is detached or dir is not a working tree.
+//
+// It reads the worktree's own git directory rather than the shared one, because
+// the branch is the one piece of git state a worktree does not share, and it is
+// most of the reason to have several.
+func Branch(dir string) string {
+	git, ok, err := gitDir(dir)
+	if err != nil || !ok {
+		return ""
+	}
+
+	raw, err := os.ReadFile(filepath.Join(git, "HEAD")) //nolint:gosec // path derived from the repository's own .git
+	if err != nil {
+		return ""
+	}
+	ref, ok := strings.CutPrefix(strings.TrimSpace(string(raw)), "ref:")
+	if !ok {
+		return "" // detached: a sha names no branch
+	}
+	return strings.TrimPrefix(strings.TrimSpace(ref), "refs/heads/")
+}
+
 // baseName is filepath.Base against an absolute path, so that "." names the
 // directory rather than itself.
 func baseName(dir string) string {

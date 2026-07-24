@@ -141,14 +141,28 @@ by a hook in your agent tool. For Claude Code, add to `.claude/settings.json`:
   "hooks": {
     "PostToolUse": [
       { "matcher": "Read", "hooks": [{ "type": "command", "command": "qm usage record" }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "qm trace record" }] }
     ]
   }
 }
 ```
 
-The hook records a document id, every installed bundle, the repository, the
-worktree, and a timestamp. It never records prompt or file content, and anything
-outside the knowledge tree is ignored.
+The `PostToolUse` hook records a document id, every installed bundle, the
+repository, the worktree, and a timestamp. It never records prompt or file
+content, and anything outside the knowledge tree is ignored.
+
+The `SessionEnd` hook spools one line per session: the session id, where its
+transcript is on this machine, the repository, the worktree and branch, and the
+bundles installed at the time. It reads no transcript and copies no content. The
+bundle set is the reason it exists, since it is the one thing a transcript cannot
+reconstruct, and without it a later pass can count what happened but can never
+attribute a change to the document that caused it.
+
+Both hooks exit zero whatever happens. A repository that has opted out, a payload
+they do not recognise, and an unwritable log are all silent no-ops. Breaking a
+session to record a statistic would be a poor trade.
 
 The repository is named by its remote rather than by its path, so every worktree
 of one repository counts as one. That is what makes the cross-repository spread

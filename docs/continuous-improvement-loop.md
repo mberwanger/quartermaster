@@ -576,7 +576,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 1. ~~Verify every `[VERIFY]` claim against the actual code and schema. Correct this document.~~ **Done 2026-07-24.** See section 0.
 2. Resolve the remaining blocking open question, the schema reduction. Question 1 is closed.
 3. Facet record schema, version 1. Freeze the identifier contract.
-4. `qm trace record` and the SessionEnd hook. Repository identity is worktree-safe as of the fix in section 4.11 and must be taken from `repo.Identity`; this is the part that cannot be corrected retroactively.
+4. **`qm trace record` done 2026-07-24**, spooling to `~/.quartermaster/spool/pending.jsonl` with `QM_TRACE_DIR` to override. Identity comes from `repo.Identity`, the branch from the worktree's own git directory, and every installed bundle rather than the first. The SessionEnd hook is documented in the README for hand-wiring, exactly as the usage hook is; installing it automatically waits on open question 8.
 5. `qm digest` including `--backfill`, run immediately against existing transcripts to build a corpus. Resolve each transcript's `cwd` through `repo.Identity` rather than trusting the harness project directory.
 6. Design `qm gaps` against that real corpus rather than against an imagined one.
 7. Capture for two weeks with the bundle held constant to establish the discovery-span baseline. Confirm first that the configured target actually names the knowledge root, per section 2.4.
