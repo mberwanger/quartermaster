@@ -139,6 +139,45 @@ func TestBranchDetachedOrAbsent(t *testing.T) {
 	}
 }
 
+// Work happens in subdirectories. Without walking up, a session that started in
+// web/ belongs to a repository called "web", and one repository fragments into
+// as many repositories as it has directories people work in.
+func TestIdentityFromASubdirectory(t *testing.T) {
+	main, linked := worktreePair(t, "https://github.com/admiral/admiral-app.git")
+
+	for _, sub := range []string{"web", filepath.Join("server", "internal", "endpoint")} {
+		dir := filepath.Join(main, sub)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if got, want := Identity(dir), "github.com/admiral/admiral-app"; got != want {
+			t.Errorf("Identity(%s) = %q, want %q", sub, got, want)
+		}
+	}
+
+	// The same holds inside a linked worktree, where .git is a file.
+	deep := filepath.Join(linked, "charts", "admiral-app")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := Identity(deep), "github.com/admiral/admiral-app"; got != want {
+		t.Errorf("Identity(worktree subdir) = %q, want %q", got, want)
+	}
+}
+
+// Without a remote, a subdirectory still resolves to the repository's own name
+// rather than to its own.
+func TestIdentityFromASubdirectoryWithoutRemote(t *testing.T) {
+	main, _ := worktreePair(t, "")
+	dir := filepath.Join(main, "web")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := Identity(dir), "main"; got != want {
+		t.Errorf("Identity = %q, want %q", got, want)
+	}
+}
+
 func TestIdentityOutsideAnyRepository(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "loose-checkout")
 	if err := os.MkdirAll(dir, 0o755); err != nil {

@@ -81,7 +81,33 @@ func baseName(dir string) string {
 // gitDir resolves the git directory for dir, handling both a normal .git
 // directory and a .git file that points elsewhere, as a linked worktree or a
 // submodule has.
+//
+// It walks up, the way git itself does, because work happens in subdirectories.
+// Without the walk a session that started in web/ belongs to a repository named
+// "web", and one repository becomes as many repositories as it has directories
+// people work in. That is the same fragmentation a worktree causes, arriving by
+// a different route.
 func gitDir(dir string) (string, bool, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false, err
+	}
+
+	for {
+		found, ok, err := gitDirAt(abs)
+		if err != nil || ok {
+			return found, ok, err
+		}
+		parent := filepath.Dir(abs)
+		if parent == abs {
+			return "", false, nil
+		}
+		abs = parent
+	}
+}
+
+// gitDirAt resolves the git directory declared by exactly this directory.
+func gitDirAt(dir string) (string, bool, error) {
 	p := filepath.Join(dir, gitName)
 	fi, err := os.Stat(p)
 	if err != nil {
