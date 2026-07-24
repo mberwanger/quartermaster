@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -51,8 +52,8 @@ given explicitly.`,
 	cmd.Flags().StringArrayVar(&v.sources, "source", nil, "Bundle source URL (repeatable, precedence by order)")
 	cmd.Flags().StringArrayVar(&v.rulesets, "ruleset", nil, "Rulesets to apply (repeatable; default all a source offers)")
 	cmd.Flags().StringArrayVar(&v.targets, "target", nil, "Harness targets (repeatable; default detected from the repository)")
-	cmd.Flags().BoolVar(&v.noTelemetry, "no-telemetry", false, "Opt out of usage telemetry")
-	cmd.Flags().BoolVar(&v.noHooks, "no-hooks", false, "Do not install git hooks")
+	cmd.Flags().BoolVar(&v.noTelemetry, "no-telemetry", false, "Opt out of usage telemetry, and of the session hook that feeds it")
+	cmd.Flags().BoolVar(&v.noHooks, "no-hooks", false, "Do not install git or harness hooks")
 	cmd.Flags().BoolVar(&v.noSync, "no-sync", false, "Do not run the first sync")
 	cmd.Flags().BoolVar(&v.force, "force", false, "Overwrite an existing manifest")
 
@@ -104,6 +105,20 @@ func (v *initCmd) run(out io.Writer) error {
 		}
 		for _, s := range skipped {
 			fmt.Fprintf(&report, "  hooks     skipped %s (already exists, not ours)\n", s)
+		}
+
+		// The session hook records what the repository looked like when a
+		// session ended, so it only makes sense where telemetry is on. It goes
+		// in the harness's own settings, and only for a harness that has the
+		// concept.
+		if !v.noTelemetry && slices.Contains(targets, "claude") {
+			wrote, err := repo.InstallSessionHook(v.dir)
+			if err != nil {
+				return err
+			}
+			if wrote {
+				fmt.Fprintf(&report, "  hooks     session (%s, commit it)\n", filepath.Join(".claude", "settings.json"))
+			}
 		}
 	}
 

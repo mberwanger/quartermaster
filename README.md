@@ -134,16 +134,23 @@ cross-repository decision: a document opened once in each of twelve repositories
 is a stronger candidate than one opened twelve times in a single one.
 
 Recording is opt-in per repository (`telemetry` in the manifest) and is written
-by a hook in your agent tool. For Claude Code, add to `.claude/settings.json`:
+by hooks in your agent tool.
+
+`qm init` installs the session hook into the repository's own
+`.claude/settings.json`, which is committed. That is deliberate: it travels to
+every worktree and every clone the way the manifest does, rather than being
+configured once per machine and quietly missing wherever it was not. It is
+guarded with `command -v qm`, so it is inert for anyone who does not have the
+tool. Pass `--no-telemetry` to skip both the hook and the recording.
+
+The read-level hook is not installed for you, because it runs on every file read
+rather than once per session:
 
 ```json
 {
   "hooks": {
     "PostToolUse": [
       { "matcher": "Read", "hooks": [{ "type": "command", "command": "qm usage record" }] }
-    ],
-    "SessionEnd": [
-      { "hooks": [{ "type": "command", "command": "qm trace record" }] }
     ]
   }
 }
