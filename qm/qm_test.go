@@ -57,10 +57,10 @@ func TestCatalogAndDocument(t *testing.T) {
 // The whole reason the library exists: a document rendered into an instruction
 // string is the same text as the same document rendered into a rule file. This
 // asserts it against the actual claude target rather than trusting they match.
-func TestInstructionEqualsRuleBody(t *testing.T) {
+func TestRulesEqualRuleBody(t *testing.T) {
 	b := openFixture(t)
 
-	instruction, err := b.Instruction("go-service")
+	instruction, err := b.Rules("go-service")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,12 +88,12 @@ func TestInstructionEqualsRuleBody(t *testing.T) {
 	}
 }
 
-func TestInstructionDedupesAndOrders(t *testing.T) {
+func TestRulesDedupeAndOrder(t *testing.T) {
 	b := openFixture(t)
 
 	// core selects eng.logging then eng.errors; go-service selects eng.logging
 	// again. The repeat must not appear twice.
-	inst, err := b.Instruction("core", "go-service")
+	inst, err := b.Rules("core", "go-service")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,9 +105,9 @@ func TestInstructionDedupesAndOrders(t *testing.T) {
 	}
 }
 
-func TestInstructionUnknownRuleset(t *testing.T) {
+func TestRulesUnknownRuleset(t *testing.T) {
 	b := openFixture(t)
-	if _, err := b.Instruction("nope"); err == nil {
+	if _, err := b.Rules("nope"); err == nil {
 		t.Fatal("expected an error for an unknown ruleset")
 	}
 }

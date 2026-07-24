@@ -183,7 +183,7 @@ into an agent's instructions is the same text it would become as a rule file.
 ```go
 bundle, _ := qm.Open("oci://ghcr.io/org/knowledge:v1")
 
-instructions, _ := bundle.Instruction("engineering", "billing") // the agent's instructions
+instruction, _  := bundle.Rules("engineering", "billing")      // the agent's system prompt
 catalog := bundle.Catalog()                                     // tool: list by id + description
 doc, _  := bundle.Document("eng.error-handling")                // tool: fetch one
 ```

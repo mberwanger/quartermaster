@@ -17,12 +17,12 @@ func Example() {
 		return
 	}
 
-	// The agent's own instructions.
-	instructions, err := bundle.Instruction("engineering", "billing")
+	// The agent's own instruction (its system prompt).
+	instruction, err := bundle.Rules("engineering", "billing")
 	if err != nil {
 		return
 	}
-	_ = instructions
+	_ = instruction
 
 	// Tool one: list what exists, by id and description.
 	for _, e := range bundle.Catalog() {
