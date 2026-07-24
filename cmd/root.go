@@ -15,8 +15,7 @@ type rootCmd struct {
 	cmd  *cobra.Command
 	exit func(int)
 
-	verbose      bool
-	outputFormat string
+	verbose bool
 }
 
 // Execute builds the root command and runs it with the provided arguments.
@@ -60,17 +59,12 @@ model call is made at any point.`,
 				slog.Debug("debug logs enabled")
 			}
 
-			if _, err := output.ParseFormat(root.outputFormat); err != nil {
-				return err
-			}
-
 			return nil
 		},
 	}
 	cmd.SetVersionTemplate("{{.Version}}")
 
 	// Global flags
-	cmd.PersistentFlags().StringVarP(&root.outputFormat, "output", "o", "text", "output format: text, json, yaml")
 	cmd.PersistentFlags().BoolVarP(&root.verbose, "verbose", "v", false, "enable verbose mode")
 	cmd.PersistentFlags().BoolP("help", "h", false, "help for qm")
 
