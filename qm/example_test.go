@@ -7,7 +7,7 @@ import (
 )
 
 // This is the whole integration an agent needs: resolve a bundle, render the
-// selected rulesets into the agent's rule, and expose the catalog and a
+// selected rulesets into the agent's instructions, and expose the catalog and a
 // fetch as its two tools. No files are written, and no agent framework is
 // imported.
 func Example() {
@@ -17,12 +17,12 @@ func Example() {
 		return
 	}
 
-	// The agent's own rule (its system prompt).
-	rule, err := bundle.Rules("engineering", "billing")
+	// The selected rulesets become the agent's instructions.
+	instructions, err := bundle.Rules("engineering", "billing")
 	if err != nil {
 		return
 	}
-	_ = rule
+	_ = instructions
 
 	// Tool one: list what exists, by id and description.
 	for _, e := range bundle.Catalog() {
