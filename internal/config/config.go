@@ -115,12 +115,22 @@ func Load(root string) (*Config, error) {
 	return &c, nil
 }
 
-// IsDocument reports whether a store-relative path is a document: it matches an
-// include pattern and no exclude pattern. A control file is still a document —
-// it is validated and linked like any other — so this does not consider
-// Controls.
+// IsDocument reports whether a store-relative path is a document of this store.
+//
+// Exclusion is deliberately not considered here. A document the store keeps to
+// itself is still a document: it is validated, it is listed, and its frontmatter
+// is held to the same schema. Conflating "not distributed" with "not a document"
+// would quietly drop the store's own operating documents out of every check that
+// keeps them honest.
 func (c *Config) IsDocument(rel string) bool {
-	return matchAny(c.Include, rel) && !matchAny(c.Exclude, rel)
+	return matchAny(c.Include, rel)
+}
+
+// IsDistributed reports whether a document travels in the bundle. Excluded
+// documents stay in the store repository, where they are still checked, and
+// never reach a consuming repository's disk.
+func (c *Config) IsDistributed(rel string) bool {
+	return c.IsDocument(rel) && !matchAny(c.Exclude, rel)
 }
 
 // IsControl reports whether a store-relative path is a control fixture.

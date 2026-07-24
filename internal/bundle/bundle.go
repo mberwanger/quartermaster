@@ -127,7 +127,7 @@ func Build(opts Options) (*Bundle, error) {
 	// Keep only files the store declares as documents.
 	var docs []doc.Doc
 	for _, d := range all {
-		if opts.Config.IsDocument(d.Path) {
+		if opts.Config.IsDistributed(d.Path) {
 			docs = append(docs, d)
 		}
 	}
@@ -373,7 +373,7 @@ func tree(root string, cfg *config.Config) ([]File, error) {
 			}
 			return nil
 		}
-		if !cfg.IsDocument(p) && !cfg.IsControl(p) {
+		if !cfg.IsDistributed(p) && !cfg.IsControl(p) {
 			return nil
 		}
 
