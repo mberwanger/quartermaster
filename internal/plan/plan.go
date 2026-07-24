@@ -77,7 +77,7 @@ func Compute(dir string) (*Result, error) {
 	var order []string
 
 	for _, mb := range m.Bundles {
-		b, err := provider.Resolve(mb.Source, dir)
+		b, err := provider.Resolve(mb.Source, dir, provider.Auth{})
 		if err != nil {
 			return nil, fmt.Errorf("resolve %s: %w", mb.Source, err)
 		}

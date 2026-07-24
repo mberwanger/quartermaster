@@ -61,7 +61,7 @@ func (v *publishCmd) run(out io.Writer) error {
 		return fmt.Errorf("read bundle at %s: %w", v.dir, err)
 	}
 
-	repo, err := oci.Open(v.ref)
+	repo, err := oci.Open(v.ref, oci.Auth{})
 	if err != nil {
 		return err
 	}

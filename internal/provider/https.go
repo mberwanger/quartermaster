@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -24,11 +25,14 @@ const maxTarball = 512 << 20 // 512 MiB
 // skip the download. That is safe for the versioned, immutable URLs this is
 // meant for — a release asset — and wrong for a URL whose content changes under
 // the same name, which is why a manifest should pin a version in the path.
-func resolveHTTPS(url string) (*bundle.Bundle, error) {
+func resolveHTTPS(url string, auth Auth) (*bundle.Bundle, error) {
+	// The URL alone keys the cache. Credentials authorize the fetch but do not
+	// change the content, so they must not change the key, or the same asset
+	// pulled with two tokens would cache twice.
 	key := sha256.Sum256([]byte(url))
 
 	dir, err := cache.Populate("https", hex.EncodeToString(key[:]), func(tmp string) error {
-		body, err := fetch(url)
+		body, err := fetch(url, auth)
 		if err != nil {
 			return err
 		}
@@ -41,10 +45,21 @@ func resolveHTTPS(url string) (*bundle.Bundle, error) {
 	return load(dir)
 }
 
-func fetch(url string) ([]byte, error) {
+func fetch(url string, auth Auth) ([]byte, error) {
 	client := &http.Client{Timeout: 5 * time.Minute}
 
-	resp, err := client.Get(url) //nolint:noctx // the client carries the timeout
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case auth.Token != "":
+		req.Header.Set("Authorization", "Bearer "+auth.Token)
+	case auth.Username != "" || auth.Password != "":
+		req.SetBasicAuth(auth.Username, auth.Password)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", url, err)
 	}

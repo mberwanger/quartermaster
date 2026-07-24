@@ -38,16 +38,40 @@ type Bundle struct {
 	pathByID map[string]string
 }
 
+// Option configures how a bundle is resolved: the credentials for a remote
+// source. Without any, each scheme falls back to the ambient credentials the CLI
+// uses — the Docker store for oci, git's own credentials for git, none for
+// https — which is right for a developer or CI, but a deployed agent that must
+// present its own token uses these.
+type Option func(*provider.Auth)
+
+// WithToken authenticates with a bearer token: an OCI access token, an https
+// Authorization bearer, or a git bearer header.
+func WithToken(token string) Option {
+	return func(a *provider.Auth) { a.Token = token }
+}
+
+// WithBasicAuth authenticates with a username and password, as `docker login`
+// stores for a registry, or as an https or git endpoint expects.
+func WithBasicAuth(username, password string) Option {
+	return func(a *provider.Auth) { a.Username, a.Password = username, password }
+}
+
 // Open resolves a bundle from a source: oci://, file://, git+https://, or
 // https://. A relative file:// path resolves against the working directory.
-func Open(source string) (*Bundle, error) {
-	return OpenAt(source, ".")
+func Open(source string, opts ...Option) (*Bundle, error) {
+	return OpenAt(source, ".", opts...)
 }
 
 // OpenAt is Open with an explicit base directory for relative file:// sources,
 // which a service resolving a path from its own configuration needs.
-func OpenAt(source, baseDir string) (*Bundle, error) {
-	b, err := provider.Resolve(source, baseDir)
+func OpenAt(source, baseDir string, opts ...Option) (*Bundle, error) {
+	var auth provider.Auth
+	for _, opt := range opts {
+		opt(&auth)
+	}
+
+	b, err := provider.Resolve(source, baseDir, auth)
 	if err != nil {
 		return nil, err
 	}

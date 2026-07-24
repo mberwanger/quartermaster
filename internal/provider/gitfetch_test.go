@@ -55,7 +55,7 @@ func newGitRepo(t *testing.T) string {
 func TestGitResolveAndFetch(t *testing.T) {
 	origin := newGitRepo(t)
 
-	sha, err := gitResolve(origin, "main")
+	sha, err := gitResolve(origin, "main", Auth{})
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestGitResolveAndFetch(t *testing.T) {
 	}
 
 	// HEAD resolves to the same commit.
-	head, err := gitResolve(origin, "")
+	head, err := gitResolve(origin, "", Auth{})
 	if err != nil {
 		t.Fatalf("resolve HEAD: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestGitResolveAndFetch(t *testing.T) {
 	}
 
 	dst := t.TempDir()
-	if err := gitFetch(origin, "main", dst); err != nil {
+	if err := gitFetch(origin, "main", dst, Auth{}); err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 
@@ -88,7 +88,7 @@ func TestGitResolveAndFetch(t *testing.T) {
 
 func TestGitResolveUnknownRef(t *testing.T) {
 	origin := newGitRepo(t)
-	if _, err := gitResolve(origin, "no-such-ref"); err == nil {
+	if _, err := gitResolve(origin, "no-such-ref", Auth{}); err == nil {
 		t.Fatal("expected an error for an unknown ref")
 	}
 }

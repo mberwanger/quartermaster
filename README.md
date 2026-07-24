@@ -174,6 +174,32 @@ Remote sources are cached by digest under `~/.quartermaster/cache` (override wit
 `QM_CACHE_DIR`), so many repositories on the same bundle pull it once. `file://` is never
 cached: a local tree is what you edit, and every save has to be visible immediately.
 
+### Credentials
+
+Quartermaster keeps no credentials of its own. Each remote scheme uses the same
+credentials the tool it wraps already uses, so a registry you can `docker pull`
+from and a repository you can `git clone` both work with no extra setup.
+
+| Scheme | Authenticates with |
+| --- | --- |
+| `oci://` | The Docker credential store — `docker login ghcr.io` locally, or `docker/login-action` in CI. Anonymous when none is configured, which is right for a public registry. |
+| `git+https://` | Git's own credentials — a credential helper or a cached token. It never prompts, so a private repository with no cached credentials fails cleanly rather than hanging a git hook. |
+| `https://` | Nothing. Built for a public, versioned release asset. |
+
+A private source in a headless environment therefore needs those credentials
+present: a registry login in the agent's image, or git credentials in its
+environment. The library takes them explicitly instead, for a deployed agent
+that carries its own token rather than an ambient login:
+
+```go
+bundle, _ := qm.Open("oci://ghcr.io/org/knowledge:v1", qm.WithToken(os.Getenv("GITHUB_TOKEN")))
+```
+
+`WithToken` is a bearer token for any remote scheme; `WithBasicAuth` is a
+username and password, as a registry login stores. A token is passed to git
+through the environment, not the command line, so it does not appear in the
+process list.
+
 ## As a library
 
 An agent can consume a bundle directly instead of reading files a sync wrote.

@@ -14,10 +14,14 @@ import (
 // The reference is resolved to a descriptor first, which is a cheap call, so a
 // cached artifact is served without fetching the layer at all. The cache key is
 // the registry digest, which makes a hit exact rather than a freshness guess.
-func resolveOCI(ref string) (*bundle.Bundle, error) {
+func resolveOCI(ref string, auth Auth) (*bundle.Bundle, error) {
 	ctx := context.Background()
 
-	repo, err := oci.Open(ref)
+	repo, err := oci.Open(ref, oci.Auth{
+		AccessToken: auth.Token,
+		Username:    auth.Username,
+		Password:    auth.Password,
+	})
 	if err != nil {
 		return nil, err
 	}

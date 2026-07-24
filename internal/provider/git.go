@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -21,16 +22,16 @@ import (
 // The ref is resolved to a commit before anything is fetched, and the commit is
 // the cache key. A branch that has not moved therefore costs one ls-remote, and
 // two repositories on the same commit clone once.
-func resolveGit(source string) (*bundle.Bundle, error) {
+func resolveGit(source string, auth Auth) (*bundle.Bundle, error) {
 	url, subdir, ref := parseGitSource(source)
 
-	commit, err := gitResolve(url, ref)
+	commit, err := gitResolve(url, ref, auth)
 	if err != nil {
 		return nil, err
 	}
 
 	dir, err := cache.Populate("git", commit, func(tmp string) error {
-		return gitFetch(url, ref, tmp)
+		return gitFetch(url, ref, tmp, auth)
 	})
 	if err != nil {
 		return nil, err
@@ -62,13 +63,13 @@ func parseGitSource(source string) (url, subdir, ref string) {
 }
 
 // gitResolve turns a ref into a commit sha without cloning.
-func gitResolve(url, ref string) (string, error) {
+func gitResolve(url, ref string, auth Auth) (string, error) {
 	target := ref
 	if target == "" {
 		target = "HEAD"
 	}
 
-	out, err := runGit("", "ls-remote", url, target)
+	out, err := runGit("", auth, "ls-remote", url, target)
 	if err != nil {
 		return "", err
 	}
@@ -91,7 +92,7 @@ func gitResolve(url, ref string) (string, error) {
 // gitFetch shallow-fetches a single ref into dir and strips the git metadata,
 // leaving only the tree. Init-and-fetch is used rather than clone because it
 // works uniformly for a branch, a tag, and (where the server allows it) a commit.
-func gitFetch(url, ref, dir string) error {
+func gitFetch(url, ref, dir string, auth Auth) error {
 	target := ref
 	if target == "" {
 		target = "HEAD"
@@ -104,7 +105,7 @@ func gitFetch(url, ref, dir string) error {
 		{"checkout", "--quiet", "FETCH_HEAD"},
 	}
 	for _, args := range steps {
-		if _, err := runGit(dir, args...); err != nil {
+		if _, err := runGit(dir, auth, args...); err != nil {
 			return err
 		}
 	}
@@ -113,13 +114,23 @@ func gitFetch(url, ref, dir string) error {
 	return os.RemoveAll(filepath.Join(dir, ".git"))
 }
 
-func runGit(dir string, args ...string) (string, error) {
+func runGit(dir string, auth Auth, args ...string) (string, error) {
 	cmd := exec.Command("git", args...) //nolint:gosec // args are constructed here, not user shell input
 	if dir != "" {
 		cmd.Dir = dir
 	}
 	// Never prompt: a credential prompt in a sync would hang a git hook.
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+
+	// A token is passed as an http header through the environment rather than on
+	// the command line, so it does not show up in the process list.
+	if h := authHeader(auth); h != "" {
+		cmd.Env = append(cmd.Env,
+			"GIT_CONFIG_COUNT=1",
+			"GIT_CONFIG_KEY_0=http.extraHeader",
+			"GIT_CONFIG_VALUE_0=Authorization: "+h,
+		)
+	}
 
 	out, err := cmd.Output()
 	if err != nil {
@@ -134,6 +145,21 @@ func runGit(dir string, args ...string) (string, error) {
 		return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 	}
 	return string(out), nil
+}
+
+// authHeader returns the Authorization header value for the credentials, or the
+// empty string when there are none. A token is a bearer; a username and password
+// are basic.
+func authHeader(auth Auth) string {
+	switch {
+	case auth.Token != "":
+		return "Bearer " + auth.Token
+	case auth.Username != "" || auth.Password != "":
+		enc := base64.StdEncoding.EncodeToString([]byte(auth.Username + ":" + auth.Password))
+		return "Basic " + enc
+	default:
+		return ""
+	}
 }
 
 func isCommitSHA(s string) bool {

@@ -136,7 +136,7 @@ func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 
 	var out []bundleSpec
 	for _, src := range v.sources {
-		b, err := provider.Resolve(src, v.dir)
+		b, err := provider.Resolve(src, v.dir, provider.Auth{})
 		if err != nil {
 			return nil, fmt.Errorf("resolve %s: %w", src, err)
 		}

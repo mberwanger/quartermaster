@@ -20,9 +20,28 @@ import (
 	"github.com/mberwanger/quartermaster/internal/ruleset"
 )
 
+// Auth carries credentials for a remote source. Its zero value means none, and
+// each scheme then falls back to whatever ambient credentials the underlying
+// tool already uses: the Docker store for oci, git's own credentials for git,
+// and nothing for https.
+type Auth struct {
+	// Token is a bearer token: an OCI access token, an https Authorization
+	// bearer, or a git http.extraHeader bearer.
+	Token string
+	// Username and Password are basic credentials, for a registry or an https
+	// or git endpoint that wants them.
+	Username string
+	Password string
+}
+
+func (a Auth) set() bool {
+	return a.Token != "" || a.Username != "" || a.Password != ""
+}
+
 // Resolve turns a source URL into a bundle. Relative file:// paths resolve
-// against baseDir, the directory of the manifest that named the source.
-func Resolve(source, baseDir string) (*bundle.Bundle, error) {
+// against baseDir, the directory of the manifest that named the source. auth is
+// used for remote schemes and ignored for file://.
+func Resolve(source, baseDir string, auth Auth) (*bundle.Bundle, error) {
 	scheme, rest, ok := strings.Cut(source, "://")
 	if !ok {
 		return nil, fmt.Errorf("source %q has no scheme, expected e.g. file://path", source)
@@ -32,11 +51,11 @@ func Resolve(source, baseDir string) (*bundle.Bundle, error) {
 	case "file":
 		return resolveFile(rest, baseDir)
 	case "oci":
-		return resolveOCI(rest)
+		return resolveOCI(rest, auth)
 	case "https":
-		return resolveHTTPS(source)
+		return resolveHTTPS(source, auth)
 	case "git+https":
-		return resolveGit("https://" + rest)
+		return resolveGit("https://"+rest, auth)
 	default:
 		return nil, fmt.Errorf("unknown source scheme %q", scheme)
 	}

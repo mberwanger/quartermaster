@@ -47,9 +47,24 @@ type Repo struct {
 	ref  registry.Reference
 }
 
+// Auth carries explicit registry credentials. Its zero value means none, which
+// falls back to the ambient Docker credential store.
+type Auth struct {
+	// AccessToken is a bearer token, used directly against the registry.
+	AccessToken string
+	// Username and Password are basic credentials, as `docker login` stores.
+	Username string
+	Password string
+}
+
+func (a Auth) set() bool {
+	return a.AccessToken != "" || a.Username != "" || a.Password != ""
+}
+
 // Open parses a reference like ghcr.io/org/knowledge:v0.14.2 (or @sha256:...)
-// and prepares an authenticated client for it.
-func Open(ref string) (*Repo, error) {
+// and prepares a client for it, authenticated by the given credentials or, when
+// none are given, by the ambient Docker credential store.
+func Open(ref string, creds Auth) (*Repo, error) {
 	parsed, err := registry.ParseReference(ref)
 	if err != nil {
 		return nil, fmt.Errorf("parse reference %q: %w", ref, err)
@@ -59,7 +74,7 @@ func Open(ref string) (*Repo, error) {
 	if err != nil {
 		return nil, err
 	}
-	repo.Client = newClient()
+	repo.Client = newClient(parsed.Registry, creds)
 	if isLoopback(parsed.Registry) {
 		// A registry on loopback is a local test registry, which is normally
 		// served without TLS.
@@ -172,16 +187,25 @@ func bundleLayer(m ocispec.Manifest) (ocispec.Descriptor, error) {
 	return ocispec.Descriptor{}, fmt.Errorf("artifact carries no %s layer", LayerMediaType)
 }
 
-// newClient builds an authenticated client, falling back to anonymous access
-// when no docker credentials are configured. An anonymous client is correct for
-// a public registry, so a missing credential store is not an error.
-func newClient() remote.Client {
+// newClient builds a client for one registry. Explicit credentials win; without
+// them it reads the Docker credential store; without that it is anonymous, which
+// is correct for a public registry, so a missing store is not an error.
+func newClient(registryHost string, creds Auth) remote.Client {
 	c := &auth.Client{
 		Client: retry.DefaultClient,
 		Cache:  auth.NewCache(),
 	}
-	if store, err := credentials.NewStoreFromDocker(credentials.StoreOptions{}); err == nil {
-		c.Credential = credentials.Credential(store)
+	switch {
+	case creds.set():
+		c.Credential = auth.StaticCredential(registryHost, auth.Credential{
+			Username:    creds.Username,
+			Password:    creds.Password,
+			AccessToken: creds.AccessToken,
+		})
+	default:
+		if store, err := credentials.NewStoreFromDocker(credentials.StoreOptions{}); err == nil {
+			c.Credential = credentials.Credential(store)
+		}
 	}
 	return c
 }

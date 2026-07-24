@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mberwanger/quartermaster/internal/provider"
 	"github.com/mberwanger/quartermaster/internal/target"
 )
 
@@ -109,6 +110,20 @@ func TestRulesUnknownRuleset(t *testing.T) {
 	b := openFixture(t)
 	if _, err := b.Rules("nope"); err == nil {
 		t.Fatal("expected an error for an unknown ruleset")
+	}
+}
+
+func TestAuthOptions(t *testing.T) {
+	var a provider.Auth
+	WithToken("tok")(&a)
+	if a.Token != "tok" {
+		t.Fatalf("WithToken set %+v", a)
+	}
+
+	a = provider.Auth{}
+	WithBasicAuth("u", "p")(&a)
+	if a.Username != "u" || a.Password != "p" {
+		t.Fatalf("WithBasicAuth set %+v", a)
 	}
 }
 
