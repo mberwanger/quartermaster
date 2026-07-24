@@ -74,6 +74,9 @@ func (v *statusCmd) run(out io.Writer) error {
 	if len(r.Skills) > 0 {
 		fmt.Fprintf(&b, "skills:    %d on demand\n", len(r.Skills))
 	}
+	if len(r.Agents) > 0 {
+		fmt.Fprintf(&b, "agents:    %d delegated\n", len(r.Agents))
+	}
 	fmt.Fprintf(&b, "knowledge: %d docs retrievable\n", len(r.Knowledge))
 
 	if r.Budget.ResidentBytes > 0 {

@@ -161,6 +161,10 @@ func Build(opts Options) (*Bundle, error) {
 		return nil, err
 	}
 
+	if err := checkAgentPermissions(docs); err != nil {
+		return nil, err
+	}
+
 	// Rulesets are compiled against every document, so a reference to a
 	// document that falls short fails with the reason rather than a misleading
 	// "unknown id".
@@ -263,6 +267,35 @@ func Build(opts Options) (*Bundle, error) {
 // restricted reports whether a document must never enter the artifact.
 func restricted(d doc.Doc) bool {
 	return d.Str("visibility") == "restricted"
+}
+
+// bypassPermissions is the one permission mode a bundle may not carry.
+const bypassPermissions = "bypassPermissions"
+
+// checkAgentPermissions refuses to distribute an agent that waives the
+// permission prompt.
+//
+// Every other kind of document a bundle carries is text: a rule advises, a skill
+// informs, and a person still approves whatever the agent then tries to do. An
+// agent definition is different, because it grants a capability, and this
+// particular grant removes the last place a person could say no.
+//
+// Arriving by sync is what makes it unacceptable rather than the mode itself. A
+// repository that genuinely wants it can write the agent by hand, deliberately
+// and locally, which is a decision somebody makes rather than one that lands in
+// twenty-one repositories because a document was edited.
+func checkAgentPermissions(docs []doc.Doc) error {
+	for _, d := range docs {
+		block, ok := d.Frontmatter["agent"].(map[string]any)
+		if !ok {
+			continue
+		}
+		if mode, _ := block["permission-mode"].(string); mode == bypassPermissions {
+			return fmt.Errorf("%s declares permission-mode %s, which a bundle may not distribute; write such an agent locally instead",
+				d.Path, bypassPermissions)
+		}
+	}
+	return nil
 }
 
 // checkRestrictedRefs fails the build when a ruleset names a restricted document.

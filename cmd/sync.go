@@ -114,6 +114,9 @@ func writeReport(out io.Writer, r *plan.Result, pruned int) {
 		}
 		fmt.Fprintf(&b, "  → skills      %d on demand (%d asset file(s))\n", len(r.Skills), assets)
 	}
+	if len(r.Agents) > 0 {
+		fmt.Fprintf(&b, "  → agents      %d delegated\n", len(r.Agents))
+	}
 	fmt.Fprintf(&b, "  → knowledge   %d docs retrievable\n", len(r.Knowledge))
 	for _, blk := range r.Blocks {
 		fmt.Fprintf(&b, "  → %-11s managed block updated\n", blk.Path)

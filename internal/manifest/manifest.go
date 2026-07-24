@@ -48,6 +48,10 @@ type Bundle struct {
 	// on demand rather than pushed at the agent, so it costs no context until it
 	// is chosen and is never counted against the resident budget.
 	Skills []string `yaml:"skills"`
+	// Agents names the agent definitions to materialize, by document id. An
+	// agent is a capability rather than text, carrying its own tool allowlist
+	// and permissions, so a repository opts into each one by name.
+	Agents []string `yaml:"agents"`
 	// Knowledge scopes which of the bundle's documents are written to the
 	// knowledge tree, matching on any frontmatter field. Empty means all of
 	// them.

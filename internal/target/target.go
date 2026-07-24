@@ -79,6 +79,29 @@ type Skill struct {
 	Commit string
 }
 
+// Agent is a named agent definition: a system prompt with its own tool
+// allowlist and model, which the harness delegates to when the work matches its
+// description.
+//
+// An agent is not text the way a rule is. It is a capability, and the fields
+// below grant it, which is why a store is held to a stricter standard for one.
+type Agent struct {
+	ID   string
+	Name string
+	// Description is what the harness reads when deciding whether to delegate.
+	Description string
+	// Tools narrows what the agent may use. Empty inherits the harness default.
+	Tools          []string
+	Model          string
+	Effort         string
+	Color          string
+	PermissionMode string
+	// Prose is the agent's system prompt.
+	Prose  []byte
+	Digest string
+	Commit string
+}
+
 // Bundle summarizes a resolved source for targets that render a pointer to it
 // rather than the rules themselves.
 type Bundle struct {
@@ -91,6 +114,7 @@ type Bundle struct {
 type Input struct {
 	Docs    []Doc
 	Skills  []Skill
+	Agents  []Agent
 	Bundles []Bundle
 }
 

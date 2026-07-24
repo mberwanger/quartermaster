@@ -35,6 +35,8 @@ type Result struct {
 	Docs []target.Doc
 	// Skills are the selected skills, each with the assets that travel with it.
 	Skills []target.Skill
+	// Agents are the selected agent definitions.
+	Agents []target.Agent
 	// Knowledge is the retrievable tree subset of Outputs.
 	Knowledge map[string][]byte
 	// Blocks are managed regions to splice into committed files (e.g. AGENTS.md).
@@ -139,6 +141,15 @@ func Compute(dir string) (*Result, error) {
 			r.Skills = append(r.Skills, *s)
 		}
 
+		for _, id := range mb.Agents {
+			a, err := resolveAgent(b, id, bodyByPath)
+			if err != nil {
+				return nil, err
+			}
+			a.Digest, a.Commit = b.Meta.Digest, b.Meta.Source.Commit
+			r.Agents = append(r.Agents, *a)
+		}
+
 		for _, f := range b.Files {
 			if !mb.Knowledge.Empty() {
 				// Only catalog documents can be judged. The reserved index
@@ -176,7 +187,12 @@ func Compute(dir string) (*Result, error) {
 	r.Outputs = make(map[string][]byte, len(r.Knowledge))
 	maps.Copy(r.Outputs, r.Knowledge)
 
-	in := target.Input{Docs: r.Docs, Skills: r.Skills, Bundles: bundlesForTarget(r.Bundles)}
+	in := target.Input{
+		Docs:    r.Docs,
+		Skills:  r.Skills,
+		Agents:  r.Agents,
+		Bundles: bundlesForTarget(r.Bundles),
+	}
 	for _, t := range targets {
 		out, err := t.Render(in)
 		if err != nil {
