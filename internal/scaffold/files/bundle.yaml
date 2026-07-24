@@ -1,0 +1,20 @@
+name: {{NAME}}
+schema: meta/frontmatter.schema.json
+rulesets: meta/rulesets.yaml
+
+# Every markdown file is a document. Templates are excluded from the bundle
+# because their ids are placeholders, but they are still validated here.
+include: ["**/*.md"]
+exclude: ["meta/templates/**"]
+
+# What a document must be before a ruleset may turn it into a rule. A draft is
+# still distributed and still readable; it just never loads on its own.
+requires:
+  status: [active]
+  provenance: [verified, decided]
+  visibility: { not: [restricted] }
+
+# What counts as a skill: a directory whose skill.md declares type skill. The
+# files beside it travel as assets and need no frontmatter of their own.
+skills:
+  type: [skill]

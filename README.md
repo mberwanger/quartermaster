@@ -38,6 +38,7 @@ repository that consumes it.
 
 | Command | Purpose |
 | --- | --- |
+| `qm bundle init` | Scaffold a new knowledge store |
 | `qm bundle build` | Compile a source tree into a bundle |
 | `qm bundle validate` | Run the build checks without emitting anything |
 | `qm bundle explain <id>` | Show why a document did or did not become a rule |

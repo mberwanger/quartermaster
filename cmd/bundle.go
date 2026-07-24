@@ -28,6 +28,7 @@ sync, verify, status — stay at the top level.`,
 	}
 
 	cmd.AddCommand(
+		newBundleInitCmd().cmd,
 		newBuildCmd().cmd,
 		newValidateCmd().cmd,
 		newExplainCmd().cmd,

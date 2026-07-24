@@ -1,0 +1,9 @@
+# Named selections of documents to push into an agent's context. Each is a list
+# of ids and holds no prose. Push sparingly: a document an agent would know to
+# look for belongs in a skill instead.
+#
+# Add one once a document is worth pushing, for example:
+#
+# house-style:
+#   docs:
+#     - id: your.document.id
