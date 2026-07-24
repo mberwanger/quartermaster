@@ -31,6 +31,7 @@ sync, verify, status — stay at the top level.`,
 		newBuildCmd().cmd,
 		newValidateCmd().cmd,
 		newExplainCmd().cmd,
+		newIndexCmd().cmd,
 		newPublishCmd().cmd,
 	)
 
