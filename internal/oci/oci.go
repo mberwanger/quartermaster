@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -41,12 +42,6 @@ const (
 // layerTitle names the layer, so `oras pull` writes a sensible filename.
 const layerTitle = "bundle.tar.gz"
 
-// Repo is a handle on one repository in a registry.
-type Repo struct {
-	repo *remote.Repository
-	ref  registry.Reference
-}
-
 // Auth carries explicit registry credentials. Its zero value means none, which
 // falls back to the ambient Docker credential store.
 type Auth struct {
@@ -59,6 +54,12 @@ type Auth struct {
 
 func (a Auth) set() bool {
 	return a.AccessToken != "" || a.Username != "" || a.Password != ""
+}
+
+// Repo is a handle on one repository in a registry.
+type Repo struct {
+	repo *remote.Repository
+	ref  registry.Reference
 }
 
 // Open parses a reference like ghcr.io/org/knowledge:v0.14.2 (or @sha256:...)
@@ -210,7 +211,20 @@ func newClient(registryHost string, creds Auth) remote.Client {
 	return c
 }
 
+// isLoopback reports whether host names the local machine. The host arrives as
+// a reference's registry part, so it may carry a port, and an IPv6 address is
+// bracketed there ("[::1]:5000") as a URL authority requires.
 func isLoopback(host string) bool {
-	h, _, _ := strings.Cut(host, ":")
-	return h == "localhost" || h == "127.0.0.1" || h == "::1"
+	h := host
+	if hostOnly, _, err := net.SplitHostPort(h); err == nil {
+		h = hostOnly
+	}
+	// An unbracketed bare "::1" fails SplitHostPort, so strip brackets after.
+	h = strings.Trim(h, "[]")
+
+	if h == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }
