@@ -36,6 +36,10 @@ Thumbs.db
 .env
 .env.*
 
-# Claude Code
-.claude/
+# Claude Code. Personal settings stay out; what the repository shares comes in.
+# settings.json is where qm init writes the session hook, and that placement is
+# only worth anything because git carries the file to every worktree and clone.
+.claude/*
+!.claude/skills/
+!.claude/settings.json
 CLAUDE.md

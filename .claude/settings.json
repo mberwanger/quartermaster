@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make validate)",
+      "Bash(make index-check)",
+      "Bash(gofmt -l *)",
+      "Bash(go vet *)",
+      "Bash(go doc *)",
+      "Bash(go env *)",
+      "mcp__go-dev-mcp__read_godoc"
+    ]
+  }
+}
