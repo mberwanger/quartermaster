@@ -41,11 +41,14 @@ type DocRef struct {
 // Load reads and parses a rulesets file. A missing path is not an error: a
 // bundle may declare no rulesets, in which case nothing is injected.
 func Load(path string) (File, error) {
+	// A missing file is an error rather than an empty set. This is only ever
+	// called for a path the store named in bundle.yaml, so the file not being
+	// there means the path is wrong, and treating that as "no rulesets" builds a
+	// bundle that carries nothing and says nothing about why. Every consuming
+	// repository would then materialize no rules and report success. A store
+	// that wants no rulesets omits the key.
 	raw, err := os.ReadFile(path) //nolint:gosec // path comes from bundle.yaml, chosen by whoever runs the tool
 	if err != nil {
-		if os.IsNotExist(err) {
-			return File{}, nil
-		}
 		return nil, err
 	}
 

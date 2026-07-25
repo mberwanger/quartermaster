@@ -98,9 +98,23 @@ func Run(root string, cfg *config.Config) (Result, error) {
 			res.Findings = append(res.Findings, schemaFindings(schema, d)...)
 		}
 
+		// An id is required whatever the schema says. The schema belongs to the
+		// store, which is the point: a team adds the fields it wants and
+		// Quartermaster does not care. But a store that drops id from its own
+		// required list would validate clean and then fail far away, when a
+		// ruleset resolves to nothing or a catalog fills with empty keys.
+		// Everything downstream joins on this: rulesets reference documents by
+		// id, the usage log records it, and a facet cites it months later.
+		//
+		// So the schema is checked against the store's rules, and this is checked
+		// against Quartermaster's.
 		id := d.ID()
 		if id == "" {
-			continue // a missing id is already a schema finding
+			res.Findings = append(res.Findings, Finding{
+				Path:    d.Path,
+				Message: "no id; every document needs one, whatever the store's schema requires",
+			})
+			continue
 		}
 		if first, dup := ids[id]; dup {
 			res.Findings = append(res.Findings, Finding{
