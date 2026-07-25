@@ -76,8 +76,27 @@ func Digest(s *transcript.Session, r Repo) facet.Facet {
 	f.DiscoverySpan = discoverySpan(s)
 	f.StoreReads = storeReads(s)
 	f.Outcome = outcome(s)
+	f.HumanAsks = humanAsks(s)
 
 	return f
+}
+
+// humanAsks counts the times the agent stopped and put something to a person.
+//
+// Only the count. Recording each one as a question the session was trying to
+// answer looked free and was wrong: what agents put to a person is usually a
+// decision to be made rather than a fact to be recovered, so the text is a
+// naming argument or a sequencing choice far more often than a gap. Counting
+// keeps the part that is true, that the session could not go on by itself, and
+// throws away the part that would pollute a corpus meant for clustering.
+func humanAsks(s *transcript.Session) int {
+	var n int
+	for _, e := range s.Events {
+		if e.Kind == transcript.KindToolUse {
+			n += len(e.Asked)
+		}
+	}
+	return n
 }
 
 // discoverySpan counts the tool calls before the first edit landed.

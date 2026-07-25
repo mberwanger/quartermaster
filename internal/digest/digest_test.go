@@ -159,3 +159,25 @@ func TestRepoIdentityAndBundlesAreCarried(t *testing.T) {
 		t.Errorf("source = %q, want a record to say how it was made", f.Source)
 	}
 }
+
+// Stopping to ask is counted, never transcribed into questions. What an agent
+// puts to a person is usually a decision to be made rather than a fact to be
+// recovered, and those cannot cluster.
+func TestHumanAsksAreCountedNotRecordedAsQuestions(t *testing.T) {
+	f := Digest(session(
+		tool("Grep", "", "", 1),
+		transcript.Event{Kind: transcript.KindToolUse, Tool: "AskUserQuestion", At: at(2),
+			Asked: []string{"what should we call this", "which order do you want these in"}},
+		tool("Edit", "/f", "", 3),
+	), Repo{})
+
+	if f.HumanAsks != 2 {
+		t.Errorf("human asks = %d, want 2", f.HumanAsks)
+	}
+	if len(f.Questions) != 0 {
+		t.Errorf("a naming argument became a question: %+v", f.Questions)
+	}
+	if f.Source != facet.SourceStructural {
+		t.Errorf("source = %q, want structural", f.Source)
+	}
+}

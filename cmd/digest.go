@@ -118,7 +118,10 @@ qm digest annotate.`,
 				if err != nil {
 					continue // not digested yet; qm digest is what fixes that
 				}
-				if pending && len(f.Questions) > 0 {
+				// Pending means nobody has read it, not that the record has no
+				// questions. Structural extraction fills in the ones a person
+				// was asked outright, and those arrive without anyone looking.
+				if pending && f.Source == facet.SourceModel {
 					continue
 				}
 				fmt.Fprintf(out, "%s\t%s\t%s\n", f.Session, f.Repo, src.Path)
@@ -256,6 +259,16 @@ func (v *digestCmd) run(out io.Writer) error {
 		}
 
 		f := digest.Digest(s, resolveRepo(s.CWD, src))
+
+		// Re-deriving must not throw away what a model established. The
+		// structural fields are cheap and reproducible; an annotation cost
+		// somebody a reading of the transcript, and losing it on a re-run would
+		// make improving the derivation something you avoid doing.
+		if prior, err := facet.Load(f.Session); err == nil && prior.Source == facet.SourceModel {
+			f.Questions = prior.Questions
+			f.Source = prior.Source
+		}
+
 		if v.dryRun {
 			digested++
 			continue
@@ -463,9 +476,12 @@ func (v *digestCmd) report(out io.Writer, digested, skipped, unreadable int) err
 	}
 	b.WriteString("\n")
 
-	if digested > 0 && !v.dryRun {
-		dir, err := facet.Dir()
-		if err == nil {
+	// Summarize whenever there is a corpus, not only when this run added to it.
+	// A repository that is already fully digested otherwise reports a count of
+	// what it skipped and nothing about what you have, which reads as a dead end
+	// when it is the opposite.
+	if !v.dryRun {
+		if dir, err := facet.Dir(); err == nil && digested > 0 {
 			fmt.Fprintf(&b, "records in %s\n", dir)
 		}
 		if err := summarize(&b); err != nil {
@@ -486,7 +502,7 @@ func summarize(b *strings.Builder) error {
 
 	repos := map[string]int{}
 	var spans []int
-	var reads, withBundles int
+	var reads, withBundles, annotated int
 	for _, f := range facets {
 		repos[f.Repo]++
 		if f.DiscoverySpan != nil {
@@ -495,6 +511,9 @@ func summarize(b *strings.Builder) error {
 		reads += len(f.StoreReads)
 		if len(f.Bundles) > 0 {
 			withBundles++
+		}
+		if f.Source == facet.SourceModel {
+			annotated++
 		}
 	}
 
@@ -507,6 +526,13 @@ func summarize(b *strings.Builder) error {
 			spans[len(spans)/2], len(spans))
 	}
 	fmt.Fprintf(b, "  store reads      %d\n", reads)
+
+	// What a record still lacks is the actionable part, so it goes above the
+	// caveats rather than below them.
+	if pending := len(facets) - annotated; pending > 0 {
+		fmt.Fprintf(b, "  %d session(s) have no questions yet, which is what clustering needs.\n", pending)
+		fmt.Fprintf(b, "  qm digest list --pending  names them.\n")
+	}
 
 	// The limit worth stating plainly, because it decides what the corpus can
 	// be asked. A record with no bundle cannot say whether a bundle helped.

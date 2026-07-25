@@ -57,6 +57,18 @@ type Facet struct {
 	// took ten prompts to land an edit went differently from one that took one,
 	// and both are cheap to count.
 	Prompts int `json:"prompts"`
+	// HumanAsks is how many times the agent stopped and put a question to a
+	// person.
+	//
+	// The count, not the questions. An early version recorded the text of each
+	// one as a question the session was trying to answer, and on real sessions
+	// that turned out to be wrong: agents stop and ask in order to have a
+	// decision made, about naming and sequencing and taste, far more often than
+	// to recover something they could not find. Thirteen of the corpus's first
+	// sixteen questions arrived this way and not one of them could ever cluster.
+	// The number still says something real, that the session could not proceed
+	// alone, and it says it without pretending to be evidence of a gap.
+	HumanAsks int `json:"human_asks,omitempty"`
 
 	// Questions is what the session was trying to establish, in its own words.
 	// Deriving it needs a model, so a record written by structural extraction
@@ -128,10 +140,19 @@ type Question struct {
 }
 
 // How a question was answered.
+//
+// Delegated and ExternalDocs were added after the first real annotation pass,
+// where two of the six questions a session actually asked fitted none of the
+// original five and were dropped rather than mislabelled. Both are the shape
+// worth catching: a question answered by a subagent's research or by a
+// dependency's documentation was answered by neither this codebase nor the
+// store, which is what a content gap looks like from the inside.
 const (
 	ResolutionStoreRead       = "store_read"
 	ResolutionSourceRead      = "source_read"
 	ResolutionBashExploration = "bash_exploration"
+	ResolutionExternalDocs    = "external_docs"
+	ResolutionDelegated       = "delegated"
 	ResolutionAskedHuman      = "asked_human"
 	ResolutionUnresolved      = "unresolved"
 )
@@ -142,6 +163,8 @@ var Resolutions = []string{
 	ResolutionStoreRead,
 	ResolutionSourceRead,
 	ResolutionBashExploration,
+	ResolutionExternalDocs,
+	ResolutionDelegated,
 	ResolutionAskedHuman,
 	ResolutionUnresolved,
 }

@@ -47,6 +47,11 @@ type Event struct {
 	Command string
 	// Text is the prompt or reasoning body.
 	Text string
+	// Asked is what the agent put to a person, when the tool was the one that
+	// stops and asks. A session that had to ask is a session where neither the
+	// code nor the store could answer, and the transcript says so outright
+	// rather than by inference.
+	Asked []string
 }
 
 // Session is one agent session, normalized.
@@ -88,10 +93,13 @@ type block struct {
 }
 
 type toolInput struct {
-	FilePath string `json:"file_path"`
-	Path     string `json:"path"`
-	Command  string `json:"command"`
-	Pattern  string `json:"pattern"`
+	FilePath  string `json:"file_path"`
+	Path      string `json:"path"`
+	Command   string `json:"command"`
+	Pattern   string `json:"pattern"`
+	Questions []struct {
+		Question string `json:"question"`
+	} `json:"questions"`
 }
 
 // Read parses the transcript at path.
@@ -185,12 +193,20 @@ func events(e entry, at time.Time, s *Session) []Event {
 			if path == "" {
 				path = in.Path
 			}
+			var asked []string
+			for _, q := range in.Questions {
+				if q.Question != "" {
+					asked = append(asked, q.Question)
+				}
+			}
+
 			out = append(out, Event{
 				Kind:    KindToolUse,
 				At:      at,
 				Tool:    b.Name,
 				Path:    path,
 				Command: in.Command,
+				Asked:   asked,
 			})
 		case "thinking":
 			if b.Thinking != "" {
