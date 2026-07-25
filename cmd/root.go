@@ -81,6 +81,7 @@ model call is made at any point.`,
 		newTargetsCmd().cmd,
 		newStatsCmd().cmd,
 		newDigestCmd().cmd,
+		newGapsCmd().cmd,
 		newUsageCmd().cmd,
 		newTraceCmd().cmd,
 	)
