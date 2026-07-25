@@ -15,11 +15,11 @@ not author, summarize, or reason.
 
 ```
 cd my-repo
-qm init --source file://../knowledge/store --ruleset engineering
+qm init --source file://../knowledge/store --package engineering
 ```
 
 There is a runnable store in [`examples/`](examples/) — a walkthrough of one
-repository taking two teams' rulesets, scoping the knowledge it keeps on disk,
+repository taking two teams' packages, scoping the knowledge it keeps on disk,
 and correctly refusing to promote a draft.
 
 `init` resolves the source, detects which agent tools the repository uses, writes
@@ -28,7 +28,7 @@ and `post-merge` hooks so the files stay current across branch switches, and run
 first sync.
 
 After that, `qm sync` is the only command you need day to day — and the hooks usually run
-it for you. Sources and rulesets are listed in precedence order: when two bundles define
+it for you. Sources and packages are listed in precedence order: when two bundles define
 the same rule, the later one wins.
 
 ## Commands
@@ -55,12 +55,16 @@ repository that consumes it.
 A **bundle** is a snapshot of a knowledge store — markdown with frontmatter — addressed by
 a content digest, so a given digest always means the same bytes.
 
-A **ruleset** is a named list of document ids — shaped by team or topic, like `engineering`
-or `billing`. It holds no content of its own; choosing a ruleset decides which documents
-become rules in your repository, and the documents are in the bundle either way.
+A **package** is a named selection — shaped by team or topic, like `engineering` or
+`data-engineering` — carrying the rules, skills, and agents that belong together. It holds
+no content of its own; choosing a package decides what your repository is given without
+asking, and the documents are in the bundle either way.
 
-Rulesets are not tied to a particular agent tool — that is what **targets** are for. One
-ruleset renders into every target you configure.
+Selections are patterns, so a team's skills are `skills.data.*` rather than a list, and
+adding one reaches every package that globs it without editing any of them.
+
+Packages are not tied to a particular agent tool — that is what **targets** are for. One
+package renders into every target you configure.
 
 Which documents are *allowed* to become rules is declared once, in the store's
 `bundle.yaml`, and applied when the bundle is built:
@@ -71,7 +75,7 @@ requires:
   provenance: [verified, decided]
 ```
 
-A draft can't be pulled in by naming it in a ruleset — the build fails and tells you which
+A draft can't be pulled in by naming it in a package — the build fails and tells you which
 requirement it missed. `qm bundle explain <id>` answers the same question for any document.
 
 How a rule loads depends on whether it declares a path scope:
@@ -92,7 +96,7 @@ by matching on any frontmatter field:
 ```yaml
 bundles:
   - source: oci://ghcr.io/org/knowledge:v1
-    rulesets: [engineering, billing]
+    use: [engineering, billing]
     knowledge:
       domain: [engineering, billing]      # scalar field
       tags: { not: [deprecated] }         # or exclude
@@ -102,7 +106,7 @@ Scalar fields (`domain`, `owner`) match directly; list fields (`tags`) match whe
 entry does. Every field listed must pass.
 
 This is a relevance filter, not a permission one — what may become a rule is still decided
-by the store. If you select a ruleset that needs a document your filter excludes,
+by the store. If you select a package that needs a document your filter excludes,
 `qm sync` says so rather than quietly resolving it one way or the other. `qm status`
 reports which fields you filtered on, so a partial tree is never mistaken for the whole
 store.

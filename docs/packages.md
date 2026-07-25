@@ -1,14 +1,14 @@
 ---
 title: Packages
 type: design
-status: proposed
+status: active
 owner: martin
 description: One mechanism for selecting what a repository gets, replacing the four idioms a manifest uses today. A package names documents; type decides how each is delivered; a resident list decides which are pushed.
 ---
 
 # Packages
 
-**Deferred as of 2026-07-24.** The shape is settled and written down here so it does not have to be rediscovered, but it is not scheduled. The current manifest works, the store has two packages that are pure rulesets, and nothing is blocked on this. Pick it up when hand-maintaining id lists actually hurts, which is when a team arrives with ten skills rather than before.
+**Built 2026-07-25.** This document described the design before it existed; what shipped follows it with two changes, both noted in place below: selections are patterns rather than plain id lists, and knowledge is never package-scoped.
 
 ## The problem
 
@@ -33,64 +33,96 @@ Three consequences follow, none of them chosen.
 
 ## The shape
 
-Delivery is already a function of type. A `skill` renders as a skill, an `agent` as an agent, everything else sits on disk and is read on demand. Nothing has to declare which is which.
-
-So a package answers two questions, and only two.
-
-1. Which documents are in it.
-2. Which of those are resident.
+Delivery is already a function of type: a `skill` renders as a skill, an `agent`
+as an agent, everything else sits on disk. So a package names what it wants and
+the tool knows what to do with each.
 
 ```yaml
-# store/meta/packages.yaml
-voice:
-  resident: [voice.base]
+# meta/packages.yaml
+engineering:
+  rules:
+    - engineering.commit-messages
+  skills:
+    - skills.engineering.*
 
-voice-authoring:
-  resident: [voice.base, voice.reference, voice.guide, voice.blog]
-
-billing:
-  include:  ["billing/**"]
-  resident: [billing.invariants, billing.rounding]
+data-engineering:
+  rules:
+    - engineering.commit-messages
+    - id: engineering.go-imports
+      scope: ["**/*.go"]
+  skills:
+    - skills.engineering.*
+    - skills.data.*
+  agents:
+    - agents.doc-reviewer
 ```
 
 ```yaml
 # .quartermaster.yaml
 bundles:
-  - source: oci://ghcr.io/admiral/knowledge:v1
-    use: [voice, billing]
+  - source: oci://ghcr.io/org/knowledge:latest
+    use: [data-engineering]
 ```
 
-The billing team names one package and gets ten skills, three agents, the billing knowledge tree, and two resident rules. Adding an eleventh skill means dropping a file into `billing/skills/`. No manifest changes, in the store or in any consuming repository.
+**Selections are patterns, and a plain id is a pattern with no wildcard.** That
+is the change from the original design, and it is the one that makes this worth
+having: a team with thirty skills writes `skills.data.*` rather than thirty
+lines, and adding a thirty-first reaches every package that globs it without
+anyone editing a file.
 
-`include` takes path globs, an id list, or a frontmatter predicate, and defaults to nothing. `resident` takes ids, optionally with scope, exactly as a ruleset entry does today.
+A `*` matches within one dot-separated segment and `**` crosses them, so
+`skills.data.*` takes a team's set and `skills.**` takes every skill there is.
+Ids are matched rather than paths, because ids are already the interface
+everywhere else: manifests name them, and a facet record cites one months later.
+
+A `where` clause selects on frontmatter instead, for stores whose grouping should
+survive documents being renamed and moved:
+
+```yaml
+platform:
+  skills:
+    - where: {tags: [platform]}
+```
 
 ## What this replaces
 
-`rulesets.yaml` becomes `packages.yaml`. A ruleset is a package with only a `resident` list, so today's two carry over unchanged in meaning and mostly unchanged in text.
-
-The manifest loses `rulesets`, `skills`, `agents`, and `knowledge`, and gains `use`. Four idioms become one.
-
-`rulesets.json` in the artifact becomes `packages.json`. Format 0.3 becomes 0.4.
+`rulesets.yaml` becomes `packages.yaml`, and a ruleset becomes a package with
+only a `rules` list. The manifest loses `rulesets`, `skills`, and `agents`, and
+gains `use`. `rulesets.json` in the artifact becomes `packages.json`. Format 0.3
+becomes 0.4.
 
 ## Decisions
 
-**A repository gets only what its packages include.** Today the whole knowledge tree lands minus an optional filter. Under packages, a document belonging to no package ships nowhere. Trees get smaller, an unselected document costs no disk and no retrieval noise, and "what did I select" and "what do I have" stop being different questions. A store that wants the old behavior declares it:
+**Knowledge is not selectable.** The original design said a document belonging to
+no package ships nowhere. That was wrong for the case this exists to serve: a
+central store is one people can search, and knowledge on disk costs no context.
+Every document in a bundle stays retrievable whatever a repository selects, and a
+package decides only what arrives without being asked for. The manifest's
+`knowledge` filter still trims the tree for repositories that want less of it.
 
-```yaml
-everything:
-  include: ["**/*.md"]
-```
+**Explicit and pattern selections fail differently.** Naming an id that does not
+exist, or naming a concept as a skill, is the author's mistake and fails the
+build. A pattern that sweeps up something which does not qualify skips it,
+because otherwise setting one document to `draft` would break every package
+globbing its neighbours. A pattern matching *nothing* still fails: that is almost
+always a typo, and selecting nothing silently is how a repository ends up with no
+skills and no explanation.
 
-This is the one behavior change rather than a syntax change, and it is the reason for the format bump.
+**A package may select agents by pattern, like anything else.** An earlier draft
+carved agents out on the grounds that an agent is a capability grant rather than
+text. That does not survive contact with how rules already work: a package gains
+a rule and it reaches every consuming repository on the next update, and a rule is
+more expensive than an agent because it is resident in every session. The
+controls that do the work are elsewhere and stay: the build refuses to distribute
+an agent that waives the permission prompt, digests are pinned, and updates land
+as reviewed pull requests.
 
-**A package may select agents by glob, like anything else.** An earlier draft carved agents out on the grounds that an agent is a capability grant rather than text, so it should always be named individually. That does not survive contact with how rules already work: a ruleset gains a document and it reaches every consuming repository on the next sync, and a rule is more expensive than an agent because it is resident in every session. Refusing the same propagation for the cheaper case was a rule with no argument behind it. The controls that do the work are elsewhere and stay: the build refuses to distribute an agent that waives the permission prompt, digests are pinned, and updates land as reviewed pull requests.
+**Packages are declared in the store, not in the manifest.** A predicate in the
+consuming manifest would be a standing order about the future: give me every
+skill anyone ever writes for this team. A store-side package propagates the same
+way, but through the store's merge gate and CODEOWNERS, which is the designed
+path.
 
-**Packages are declared in the store, not in the manifest.** The alternative, a predicate in the consuming manifest, is a standing order about the future: give me every billing skill anyone ever writes. A new document then reaches every repository with no review at the point it arrives. A store-side package propagates the same way, but through the store's merge gate and CODEOWNERS, which is the designed path. The cost of enumerating lands on the person adding the document, in the commit where they add it, when they already know what it belongs to.
-
-## What it costs
-
-`internal/ruleset` becomes `internal/package` and grows `include` resolution. `internal/manifest` drops three fields and gains one. `internal/plan` stops resolving skills and agents from manifest lists and starts partitioning a package's documents by type. Targets are untouched: they already take rules, skills, and agents separately, and that split does not change.
-
-The store moves `meta/rulesets.yaml` to `meta/packages.yaml` and adds an `include` to nothing, since both current packages are pure rulesets. Consuming repositories rewrite three manifest keys as one.
-
-Nothing is published and no repository pins a digest that matters, so there is no migration burden beyond this repository's tests, its scaffold, its README, and the one store.
+**Restricted documents are refused as any kind**, not only as rules. A restricted
+document never enters the bundle, so selecting it as a skill would emit a package
+pointing at a file that is not there.
