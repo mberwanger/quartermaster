@@ -93,7 +93,19 @@ succeeds "qm bundle validate accepts the store" "$QM" bundle validate --root "$S
 # assume it. A store with no agent cannot prove agents install.
 SKILL_ID="$(grep -rl '^type: skill' "$STORE" | head -1 | xargs grep -h '^id:' | awk '{print $2}')"
 AGENT_ID="$(grep -rl '^type: agent' "$STORE" | head -1 | xargs grep -h '^id:' | awk '{print $2}')"
-RULESET="$(grep -E '^[a-z][a-z-]*:' "$STORE"/meta/rulesets.yaml | head -1 | tr -d ':')"
+
+# Prefer a ruleset that selects a scoped document. Resident and scoped rules
+# render differently, and the difference is the whole reason a budget exists, so
+# testing whichever ruleset happens to be listed first leaves that untested.
+RULESET=""
+SCOPED_IDS="$(grep -rl '^scope:' "$STORE" | xargs grep -h '^id:' 2>/dev/null | awk '{print $2}')"
+for candidate in $(grep -E '^[a-z][a-z-]*:' "$STORE"/meta/rulesets.yaml | tr -d ':'); do
+  [ -z "$RULESET" ] && RULESET="$candidate"
+  block="$(awk -v r="^$candidate:" '$0 ~ r {f=1; next} /^[a-z]/ {f=0} f' "$STORE"/meta/rulesets.yaml)"
+  for id in $SCOPED_IDS; do
+    if printf '%s' "$block" | grep -q -- "$id"; then RULESET="$candidate"; break 2; fi
+  done
+done
 
 printf '  ruleset=%s skill=%s agent=%s\n' "${RULESET:-none}" "${SKILL_ID:-none}" "${AGENT_ID:-none}"
 [ -n "$RULESET" ] && pass "store offers a ruleset" || fail "store offers a ruleset"
