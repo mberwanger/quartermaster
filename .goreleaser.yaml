@@ -101,6 +101,10 @@ brews:
     repository:
       owner: mberwanger
       name: homebrew-tap
+      # A separate credential, because GITHUB_TOKEN is scoped to this repository
+      # and cannot write to the tap whatever permissions it is given. Minted per
+      # run by a GitHub App installed on the tap alone.
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
     homepage: https://github.com/mberwanger/quartermaster
     description: Quartermaster - materialize a knowledge bundle into a repository
