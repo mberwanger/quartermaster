@@ -76,8 +76,138 @@ in one place across runs either way, so the corpus still spans repositories;
 	cmd.Flags().BoolVar(&v.dryRun, "dry-run", false, "Report what would be digested, write nothing")
 	cmd.Flags().IntVar(&v.limit, "limit", 0, "Stop after this many sessions (0 means all)")
 
+	cmd.AddCommand(newDigestListCmd(), newDigestAnnotateCmd())
+
 	v.cmd = cmd
 	return v
+}
+
+// newDigestListCmd lists sessions and what is still missing from their records,
+// which is what lets something else drive the part this cannot do alone.
+func newDigestListCmd() *cobra.Command {
+	var (
+		all     bool
+		dir     string
+		pending bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List digested sessions and their transcripts",
+		Long: `List sessions, their repository, and where their transcript is.
+
+With --pending, list only the records that have no questions yet. That is the
+part structural extraction cannot derive, so this is the work queue for whatever
+fills it in: read the transcript, extract the questions, and pipe them to
+qm digest annotate.`,
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			want := ""
+			if !all {
+				want = repo.Identity(dir)
+			}
+			sources, err := backfillSources(time.Time{}, want)
+			if err != nil {
+				return err
+			}
+
+			out := cmd.OutOrStdout()
+			for _, src := range sources {
+				f, err := facet.Load(src.ID)
+				if err != nil {
+					continue // not digested yet; qm digest is what fixes that
+				}
+				if pending && len(f.Questions) > 0 {
+					continue
+				}
+				fmt.Fprintf(out, "%s\t%s\t%s\n", f.Session, f.Repo, src.Path)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&all, "all", false, "Every repository on this machine")
+	cmd.Flags().StringVar(&dir, "dir", ".", "Repository to list")
+	cmd.Flags().BoolVar(&pending, "pending", false, "Only records still missing their questions")
+	return cmd
+}
+
+// newDigestAnnotateCmd attaches what a session was trying to establish.
+//
+// It is a writer rather than an extractor. Deciding what a session was asking
+// needs a model, and this deliberately does not care which one, or whether it
+// ran here or in an agent that read the transcript itself. What it does care
+// about is that the result fits the closed schema, because an open one cannot be
+// clustered and a vague one is mush.
+func newDigestAnnotateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "annotate <session-id>",
+		Short: "Attach the questions a session was answering",
+		Long: `Attach the questions a session was trying to answer, read as JSON on stdin.
+
+Either a bare array or an object with a "questions" key is accepted:
+
+  {"questions": [
+    {"question": "why does the envelope keep the raw payload",
+     "resolution": "source_read", "resolved": true, "tool_calls": 14,
+     "store_docs_read": ["engineering.eventing-conventions"]}
+  ]}
+
+Resolution is one of ` + strings.Join(facet.Resolutions, ", ") + `.
+
+Questions replace whatever was there, so re-annotating corrects a session rather
+than accumulating near-duplicates. Nothing else in the record is touched: what
+the transcript shows a session did is not a model's to revise.`,
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			f, err := facet.Load(args[0])
+			if err != nil {
+				return fmt.Errorf("no record for session %q; digest it first", args[0])
+			}
+
+			questions, err := readQuestions(cmd.InOrStdin())
+			if err != nil {
+				return err
+			}
+			if err := f.Annotate(questions); err != nil {
+				return err
+			}
+			if err := facet.Save(*f); err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "annotated %s with %d question(s)\n",
+				f.Session, len(questions))
+			return err
+		},
+	}
+}
+
+// readQuestions accepts either shape, because a caller piping a model's output
+// should not have to remember which one this wanted.
+func readQuestions(r io.Reader) ([]facet.Question, error) {
+	raw, err := io.ReadAll(io.LimitReader(r, 4<<20))
+	if err != nil {
+		return nil, err
+	}
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		return nil, fmt.Errorf("no questions on stdin")
+	}
+
+	var wrapped struct {
+		Questions []facet.Question `json:"questions"`
+	}
+	if err := json.Unmarshal(raw, &wrapped); err == nil && wrapped.Questions != nil {
+		return wrapped.Questions, nil
+	}
+
+	var bare []facet.Question
+	if err := json.Unmarshal(raw, &bare); err != nil {
+		return nil, fmt.Errorf("cannot read questions: %w", err)
+	}
+	return bare, nil
 }
 
 func (v *digestCmd) run(out io.Writer) error {

@@ -137,6 +137,74 @@ func TestLoadAllOrdersByEndAndSurvivesJunk(t *testing.T) {
 	}
 }
 
+func TestAnnotate(t *testing.T) {
+	span := 9
+	f := Facet{Session: "s1", Outcome: OutcomeCommitted, DiscoverySpan: &span, Source: SourceStructural}
+
+	err := f.Annotate([]Question{
+		{Question: "why does the envelope keep the payload", Resolution: ResolutionSourceRead, Resolved: true, ToolCalls: 14},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Source != SourceModel {
+		t.Errorf("source = %q, want the record to say it had help", f.Source)
+	}
+	// What the transcript showed is not a model's to revise.
+	if f.Outcome != OutcomeCommitted || f.DiscoverySpan == nil || *f.DiscoverySpan != span {
+		t.Errorf("annotating changed a structural field: %+v", f)
+	}
+}
+
+// Re-annotating corrects a session rather than accumulating near-duplicates.
+func TestAnnotateReplaces(t *testing.T) {
+	var f Facet
+	first := []Question{{Question: "a", Resolution: ResolutionUnresolved}}
+	second := []Question{{Question: "b", Resolution: ResolutionStoreRead}}
+
+	if err := f.Annotate(first); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Annotate(second); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Questions) != 1 || f.Questions[0].Question != "b" {
+		t.Errorf("questions = %+v, want only the later set", f.Questions)
+	}
+}
+
+// An open resolution set cannot be clustered, so the closed one is enforced
+// here rather than trusted upstream.
+func TestAnnotateRejectsMalformedQuestions(t *testing.T) {
+	cases := map[string][]Question{
+		"unknown resolution": {{Question: "x", Resolution: "vibes"}},
+		"empty question":     {{Question: "  ", Resolution: ResolutionStoreRead}},
+		"negative calls":     {{Question: "x", Resolution: ResolutionStoreRead, ToolCalls: -1}},
+	}
+
+	for name, questions := range cases {
+		var f Facet
+		if err := f.Annotate(questions); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+		if f.Source == SourceModel {
+			t.Errorf("%s: marked the record annotated despite refusing it", name)
+		}
+	}
+}
+
+// A session that genuinely established nothing is a legitimate record, and
+// saying so is better than a plausible fabrication.
+func TestAnnotateWithNoQuestions(t *testing.T) {
+	var f Facet
+	if err := f.Annotate(nil); err != nil {
+		t.Fatal(err)
+	}
+	if f.Source != SourceModel {
+		t.Error("an empty extraction is still an extraction that happened")
+	}
+}
+
 func TestLoadAllMissingDirIsEmpty(t *testing.T) {
 	t.Setenv("QM_FACET_DIR", filepath.Join(t.TempDir(), "never-written"))
 	all, err := LoadAll()

@@ -119,6 +119,14 @@ func (v *initCmd) run(out io.Writer) error {
 			if wrote {
 				fmt.Fprintf(&report, "  hooks     session (%s, commit it)\n", filepath.Join(".claude", "settings.json"))
 			}
+			// The file is only worth writing there because git carries it. A
+			// repository that ignores it gets a hook in this checkout and
+			// nowhere else, which is worse than not having one, because it
+			// looks installed.
+			if repo.SessionHookIgnored(v.dir) {
+				fmt.Fprintf(&report, "  warning   .gitignore covers that file, so the hook stays in this\n")
+				fmt.Fprintf(&report, "            checkout only. Un-ignore it to share it.\n")
+			}
 		}
 	}
 

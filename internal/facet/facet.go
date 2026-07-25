@@ -11,9 +11,11 @@ package facet
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -133,6 +135,42 @@ const (
 	ResolutionAskedHuman      = "asked_human"
 	ResolutionUnresolved      = "unresolved"
 )
+
+// Resolutions is every way a question may be answered. A closed set, because a
+// vague extraction yields mush and an open one cannot be clustered.
+var Resolutions = []string{
+	ResolutionStoreRead,
+	ResolutionSourceRead,
+	ResolutionBashExploration,
+	ResolutionAskedHuman,
+	ResolutionUnresolved,
+}
+
+// Annotate attaches the questions a session was trying to answer, and records
+// that the result had a model's help.
+//
+// Questions are replaced rather than appended, so re-annotating a session
+// corrects it instead of accumulating near-duplicates, and the structural fields
+// are left exactly as they were derived. A model may say what a session was
+// asking; it does not get to revise what the transcript shows it did.
+func (f *Facet) Annotate(questions []Question) error {
+	for i, q := range questions {
+		if strings.TrimSpace(q.Question) == "" {
+			return fmt.Errorf("question %d is empty", i+1)
+		}
+		if !slices.Contains(Resolutions, q.Resolution) {
+			return fmt.Errorf("question %d has resolution %q; want one of %s",
+				i+1, q.Resolution, strings.Join(Resolutions, ", "))
+		}
+		if q.ToolCalls < 0 {
+			return fmt.Errorf("question %d has %d tool calls", i+1, q.ToolCalls)
+		}
+	}
+
+	f.Questions = questions
+	f.Source = SourceModel
+	return nil
+}
 
 // Dir returns the facet directory. QM_FACET_DIR overrides it, which is what
 // tests and CI use to stay off a developer's real corpus.

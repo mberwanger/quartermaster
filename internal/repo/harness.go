@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -216,6 +217,27 @@ func (o *object) marshal() ([]byte, error) {
 	b.WriteString("}")
 
 	return b.Bytes(), nil
+}
+
+// SessionHookIgnored reports whether git is ignoring the settings file the
+// session hook lives in.
+//
+// The hook is written there because the file is committed, which is what carries
+// it to every worktree and every clone the way the manifest travels. A
+// repository that ignores .claude/ breaks that, and the hook then exists only in
+// the checkout it was installed in, silently, which is the failure the placement
+// was chosen to avoid. It is worth one line of warning at install time.
+//
+// git answers this rather than a pattern match here, because gitignore
+// precedence has negations and nested files and is not worth reimplementing. No
+// git, no answer, and no warning.
+func SessionHookIgnored(dir string) bool {
+	cmd := exec.Command("git", "check-ignore", "-q", "--", claudeSettings)
+	cmd.Dir = dir
+
+	// Exit 0 means ignored. Every other outcome, including git not being here at
+	// all, means no warning rather than a wrong one.
+	return cmd.Run() == nil
 }
 
 // HasSessionHook reports whether the repository's settings already carry the
