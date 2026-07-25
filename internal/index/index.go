@@ -78,7 +78,11 @@ func Build(root string, cfg *config.Config) ([]File, error) {
 	// are validated, and they are excluded, so they must not be advertised.
 	var docs []doc.Doc
 	for _, d := range all {
-		if cfg.IsDistributed(d.Path) {
+		// Restricted as well as undistributed. A listing that names a restricted
+		// document leaks its title and description, which is most of what made
+		// it worth restricting, and it points at a file the bundle does not
+		// carry.
+		if cfg.IsDistributed(d.Path) && !d.Restricted() {
 			docs = append(docs, d)
 		}
 	}

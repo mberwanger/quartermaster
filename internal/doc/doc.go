@@ -47,6 +47,17 @@ func (d Doc) Str(field string) string {
 	return s
 }
 
+// Restricted reports whether a document must never leave the store.
+//
+// It lives here rather than in whichever package happens to need it, because
+// more than one does and the answer has to be the same everywhere. A restricted
+// document is withheld from the artifact, and it must also be absent from
+// anything derived from the artifact: a listing that names one leaks its title
+// and description, which is most of what made it worth restricting.
+func (d Doc) Restricted() bool {
+	return d.Str("visibility") == "restricted"
+}
+
 // Reserved filenames, defined by the Open Knowledge Format. These are directory
 // listings and update logs, not concept documents, and they are the only
 // markdown in the store allowed to omit frontmatter.

@@ -179,7 +179,7 @@ func Build(opts Options) (*Bundle, error) {
 	// valid target.
 	byPath := make(map[string]string, len(docs))
 	for _, d := range docs {
-		if restricted(d) {
+		if d.Restricted() {
 			continue
 		}
 		byPath["/"+d.Path] = d.ID()
@@ -202,7 +202,7 @@ func Build(opts Options) (*Bundle, error) {
 	store.WriteString("Each block is preceded by its path, which carries information the prose does not.\n")
 
 	for _, d := range docs {
-		if restricted(d) {
+		if d.Restricted() {
 			continue
 		}
 		if err := checkLinks(d.Prose, byPath); err != nil {
@@ -231,7 +231,7 @@ func Build(opts Options) (*Bundle, error) {
 	// restricted ones.
 	restrictedPaths := make(map[string]bool)
 	for _, d := range docs {
-		if restricted(d) {
+		if d.Restricted() {
 			restrictedPaths[d.Path] = true
 		}
 	}
@@ -293,11 +293,6 @@ func indexedDirs(docs []doc.Doc, restricted map[string]bool) map[string]bool {
 	return out
 }
 
-// restricted reports whether a document must never enter the artifact.
-func restricted(d doc.Doc) bool {
-	return d.Str("visibility") == "restricted"
-}
-
 // bypassPermissions is the one permission mode a bundle may not carry.
 const bypassPermissions = "bypassPermissions"
 
@@ -338,7 +333,7 @@ func checkRestrictedRefs(rulesets ruleset.File, docs []doc.Doc) error {
 
 	for _, name := range rulesets.Names() {
 		for _, ref := range rulesets[name].Docs {
-			if d, ok := byID[ref.ID]; ok && restricted(d) {
+			if d, ok := byID[ref.ID]; ok && d.Restricted() {
 				return fmt.Errorf("ruleset %q references %q, which is restricted and never leaves the store",
 					name, ref.ID)
 			}
