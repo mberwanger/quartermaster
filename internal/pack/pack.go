@@ -291,13 +291,18 @@ func match(pkg string, kind Kind, ref Ref, byID map[string]doc.Doc, ids []string
 
 // qualifies reports whether a document may be selected as this kind.
 func qualifies(kind Kind, d doc.Doc, opts Options) (bool, string) {
+	// Restricted first, and for every kind. The document never enters the
+	// bundle, so selecting it as anything would emit a package pointing at a
+	// file that is not there, and the failure would surface in a consuming
+	// repository far from whoever caused it.
+	if d.Restricted() {
+		return false, "it is restricted and never leaves the store"
+	}
+
 	switch kind {
 	case KindRule:
 		if ok, reason := opts.Requires.Allows(d.Frontmatter); !ok {
 			return false, reason
-		}
-		if d.Restricted() {
-			return false, "it is restricted and never leaves the store"
 		}
 	case KindSkill:
 		if opts.IsSkill != nil && !opts.IsSkill(d) {

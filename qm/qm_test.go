@@ -129,7 +129,7 @@ func TestAuthOptions(t *testing.T) {
 
 func TestRulesetsAndDigest(t *testing.T) {
 	b := openFixture(t)
-	if got := b.Rulesets(); !slices.Equal(got, []string{"core", "go-service"}) {
+	if got := b.Packages(); !slices.Equal(got, []string{"core", "go-service"}) {
 		t.Fatalf("rulesets = %v", got)
 	}
 	if !strings.HasPrefix(b.Digest(), "sha256:") {

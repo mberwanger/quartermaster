@@ -33,13 +33,14 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/config"
 	"github.com/mberwanger/quartermaster/internal/doc"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
+	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
 // Version is the artifact layout's own version, independent of the Open
-// Knowledge Format version the store declares. 0.3 adds compiled rulesets to
-// the 0.2 layout.
-const Version = "0.3"
+// Knowledge Format version the store declares. 0.4 replaces the 0.3 layout's
+// rulesets, which selected documents only, with packages, which select rules,
+// skills, and agents together under one name.
+const Version = "0.4"
 
 // okfVersion is the format version the store declares at its root index.
 const okfVersion = "0.1"
@@ -52,7 +53,7 @@ type Meta struct {
 	Source     Source `json:"source"`
 	Docs       int    `json:"docs"`
 	Files      int    `json:"files"`
-	Rulesets   int    `json:"rulesets"`
+	Packages   int    `json:"packages"`
 	Controls   int    `json:"controls"`
 	StoreBytes int    `json:"store_bytes"`
 	Digest     string `json:"digest"`
@@ -84,7 +85,7 @@ type File struct {
 type Bundle struct {
 	Meta     Meta
 	Catalog  []Entry
-	Rulesets []ruleset.Compiled
+	Packages []pack.Compiled
 	StoreMD  string
 	Files    []File
 	// Controls are fixtures for the review and audit jobs, partitioned out of
@@ -98,8 +99,8 @@ type Options struct {
 	Root string
 	// Config is the parsed bundle.yaml.
 	Config *config.Config
-	// Rulesets is the parsed rulesets file.
-	Rulesets ruleset.File
+	// Packages is the parsed packages file.
+	Packages pack.File
 	// Repo and Commit are recorded in the bundle for traceability.
 	Repo   string
 	Commit string
@@ -151,25 +152,24 @@ func Build(opts Options) (*Bundle, error) {
 		}
 	}
 
-	// A restricted document never leaves the store, so no ruleset may reference
-	// one. This is checked here rather than left to the declared requirements: a
-	// store that omits visibility from requires, or declares no requires at all,
-	// must still not be able to ship a restricted document as a rule. Without
-	// this the build would succeed and emit a ruleset pointing at a file the
-	// bundle does not carry, and the failure would surface later in a consuming
-	// repository, far from the author who caused it.
-	if err := checkRestrictedRefs(opts.Rulesets, docs); err != nil {
-		return nil, err
-	}
-
 	if err := checkAgentPermissions(docs); err != nil {
 		return nil, err
 	}
 
-	// Rulesets are compiled against every document, so a reference to a
+	// Packages are compiled against every document, so a selection naming a
 	// document that falls short fails with the reason rather than a misleading
-	// "unknown id".
-	compiled, err := ruleset.Compile(opts.Rulesets, docs, opts.Config.Requires)
+	// "unknown id". A restricted document is refused as any kind, which is
+	// enforced there rather than left to the declared requirements: a store that
+	// omits visibility from requires, or declares none at all, must still not be
+	// able to ship one.
+	skillDirSet, skillPathSet := opts.Config.SkillDirs(docs)
+	_ = skillDirSet
+	_ = skillPathSet
+	compiled, err := pack.Compile(opts.Packages, docs, pack.Options{
+		Requires: opts.Config.Requires,
+		IsSkill:  func(d doc.Doc) bool { ok, _ := opts.Config.Skills.Allows(d.Frontmatter); return ok },
+		IsAgent:  func(d doc.Doc) bool { _, ok := d.Frontmatter["agent"].(map[string]any); return ok },
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func Build(opts Options) (*Bundle, error) {
 			Source:     Source{Repo: opts.Repo, Commit: opts.Commit},
 		},
 		Catalog:  []Entry{},
-		Rulesets: compiled,
+		Packages: compiled,
 	}
 
 	var store strings.Builder
@@ -262,7 +262,7 @@ func Build(opts Options) (*Bundle, error) {
 
 	b.Meta.Docs = len(b.Catalog)
 	b.Meta.Files = len(b.Files)
-	b.Meta.Rulesets = len(b.Rulesets)
+	b.Meta.Packages = len(b.Packages)
 	b.Meta.Controls = len(b.Controls)
 	b.Meta.StoreBytes = len(b.StoreMD)
 
@@ -317,26 +317,6 @@ func checkAgentPermissions(docs []doc.Doc) error {
 		if mode, _ := block["permission-mode"].(string); mode == bypassPermissions {
 			return fmt.Errorf("%s declares permission-mode %s, which a bundle may not distribute; write such an agent locally instead",
 				d.Path, bypassPermissions)
-		}
-	}
-	return nil
-}
-
-// checkRestrictedRefs fails the build when a ruleset names a restricted document.
-func checkRestrictedRefs(rulesets ruleset.File, docs []doc.Doc) error {
-	byID := make(map[string]doc.Doc, len(docs))
-	for _, d := range docs {
-		if id := d.ID(); id != "" {
-			byID[id] = d
-		}
-	}
-
-	for _, name := range rulesets.Names() {
-		for _, ref := range rulesets[name].Docs {
-			if d, ok := byID[ref.ID]; ok && d.Restricted() {
-				return fmt.Errorf("ruleset %q references %q, which is restricted and never leaves the store",
-					name, ref.ID)
-			}
 		}
 	}
 	return nil
@@ -460,7 +440,7 @@ func (b *Bundle) digest() (string, error) {
 	if err := json.NewEncoder(h).Encode(b.Catalog); err != nil {
 		return "", err
 	}
-	if err := json.NewEncoder(h).Encode(b.Rulesets); err != nil {
+	if err := json.NewEncoder(h).Encode(b.Packages); err != nil {
 		return "", err
 	}
 	if _, err := h.Write([]byte(b.StoreMD)); err != nil {

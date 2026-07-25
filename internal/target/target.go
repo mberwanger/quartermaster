@@ -107,7 +107,7 @@ type Agent struct {
 type Bundle struct {
 	Source   string
 	Digest   string
-	Rulesets []string
+	Packages []string
 }
 
 // Input is what a target renders from.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/config"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
+	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
 type buildCmd struct {
@@ -46,9 +46,9 @@ build.`,
 				return err
 			}
 
-			var rs ruleset.File
-			if cfg.Rulesets != "" {
-				rs, err = ruleset.Load(filepath.Join(v.root, cfg.Rulesets))
+			var packages pack.File
+			if cfg.Packages != "" {
+				packages, err = pack.Load(filepath.Join(v.root, cfg.Packages))
 				if err != nil {
 					return err
 				}
@@ -57,7 +57,7 @@ build.`,
 			b, err := bundle.Build(bundle.Options{
 				Root:     v.root,
 				Config:   cfg,
-				Rulesets: rs,
+				Packages: packages,
 				Repo:     v.repo,
 				Commit:   v.commit,
 			})
@@ -71,8 +71,8 @@ build.`,
 
 			var report strings.Builder
 			fmt.Fprintf(&report, "wrote %s\n", v.out)
-			fmt.Fprintf(&report, "  %d docs, %d files, %d rulesets, %d KB concatenated\n",
-				b.Meta.Docs, b.Meta.Files, b.Meta.Rulesets, b.Meta.StoreBytes/1024)
+			fmt.Fprintf(&report, "  %d docs, %d files, %d packages, %d KB concatenated\n",
+				b.Meta.Docs, b.Meta.Files, b.Meta.Packages, b.Meta.StoreBytes/1024)
 			fmt.Fprintf(&report, "  %s\n", b.Meta.Digest)
 
 			_, err = io.WriteString(cmd.OutOrStdout(), report.String())

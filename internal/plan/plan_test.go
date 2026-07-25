@@ -22,7 +22,7 @@ func TestCompute(t *testing.T) {
 	dir := t.TempDir()
 	writeManifest(t, dir, "bundles:\n"+
 		"  - source: file://"+store+"\n"+
-		"    rulesets: [core, go-service]\n"+
+		"    use: [core, go-service]\n"+
 		"targets:\n  - claude\n"+
 		"budget:\n  resident_bytes: 10\n")
 
@@ -74,10 +74,10 @@ func TestComputeUnknownRulesetFails(t *testing.T) {
 	dir := t.TempDir()
 	writeManifest(t, dir, "bundles:\n"+
 		"  - source: file://"+store+"\n"+
-		"    rulesets: [nope]\n"+
+		"    use: [nope]\n"+
 		"targets:\n  - claude\n")
 
 	if _, err := Compute(dir); err == nil {
-		t.Fatal("expected error for unknown ruleset")
+		t.Fatal("expected error for unknown package")
 	}
 }

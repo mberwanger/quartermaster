@@ -76,6 +76,14 @@ func Compute(dir string) (*Result, error) {
 	byID := make(map[string]target.Doc)
 	var order []string
 
+	// Packages overlap on purpose: a skill shared by two teams appears in both
+	// and must be materialized once. Rules dedupe through byID already, because
+	// a later bundle is allowed to replace an earlier one's version of a
+	// document; skills and agents are whole directories and files, so they are
+	// tracked separately and the first selection wins.
+	seenSkill := make(map[string]bool)
+	seenAgent := make(map[string]bool)
+
 	for _, mb := range m.Bundles {
 		b, err := provider.Resolve(mb.Source, dir, provider.Auth{})
 		if err != nil {
@@ -96,23 +104,23 @@ func Compute(dir string) (*Result, error) {
 			fmByPath[e.Path] = e.Frontmatter
 		}
 
-		for _, name := range mb.Rulesets {
-			rs, ok := findRuleset(b, name)
+		for _, name := range mb.Use {
+			pkg, ok := findPackage(b, name)
 			if !ok {
-				return nil, fmt.Errorf("%s has no ruleset %q", mb.Source, name)
+				return nil, fmt.Errorf("%s has no package %q", mb.Source, name)
 			}
-			for _, cd := range rs.Docs {
+			for _, cd := range pkg.Rules {
 				body, ok := bodyByPath[cd.Path]
 				if !ok {
-					return nil, fmt.Errorf("ruleset %q references %s at %s, absent from the store tree", name, cd.ID, cd.Path)
+					return nil, fmt.Errorf("package %q references %s at %s, absent from the store tree", name, cd.ID, cd.Path)
 				}
-				// Selecting a ruleset whose document the knowledge filter drops
-				// is a contradiction. Materializing the rule would ignore the
-				// filter; dropping it silently would ignore the ruleset. Say so
-				// instead, and let the author resolve it.
+				// Selecting a package whose rule the knowledge filter drops is
+				// a contradiction. Materializing it would ignore the filter;
+				// dropping it silently would ignore the package. Say so instead,
+				// and let the author resolve it.
 				if !mb.Knowledge.Empty() {
 					if allowed, reason := mb.Knowledge.Allows(fmByPath[cd.Path]); !allowed {
-						return nil, fmt.Errorf("ruleset %q needs %s, which the knowledge filter excludes: %s",
+						return nil, fmt.Errorf("package %q needs %s, which the knowledge filter excludes: %s",
 							name, cd.ID, reason)
 					}
 				}
@@ -130,24 +138,32 @@ func Compute(dir string) (*Result, error) {
 				}
 				byID[cd.ID] = d
 			}
-		}
 
-		for _, id := range mb.Skills {
-			s, err := resolveSkill(b, id, bodyByPath)
-			if err != nil {
-				return nil, err
+			for _, cd := range pkg.Skills {
+				if seenSkill[cd.ID] {
+					continue
+				}
+				seenSkill[cd.ID] = true
+				sk, err := resolveSkill(b, cd.ID, bodyByPath)
+				if err != nil {
+					return nil, err
+				}
+				sk.Digest, sk.Commit = b.Meta.Digest, b.Meta.Source.Commit
+				r.Skills = append(r.Skills, *sk)
 			}
-			s.Digest, s.Commit = b.Meta.Digest, b.Meta.Source.Commit
-			r.Skills = append(r.Skills, *s)
-		}
 
-		for _, id := range mb.Agents {
-			a, err := resolveAgent(b, id, bodyByPath)
-			if err != nil {
-				return nil, err
+			for _, cd := range pkg.Agents {
+				if seenAgent[cd.ID] {
+					continue
+				}
+				seenAgent[cd.ID] = true
+				a, err := resolveAgent(b, cd.ID, bodyByPath)
+				if err != nil {
+					return nil, err
+				}
+				a.Digest, a.Commit = b.Meta.Digest, b.Meta.Source.Commit
+				r.Agents = append(r.Agents, *a)
 			}
-			a.Digest, a.Commit = b.Meta.Digest, b.Meta.Source.Commit
-			r.Agents = append(r.Agents, *a)
 		}
 
 		for _, f := range b.Files {
@@ -170,7 +186,7 @@ func Compute(dir string) (*Result, error) {
 		r.Bundles = append(r.Bundles, state.Bundle{
 			Source:    mb.Source,
 			Digest:    b.Meta.Digest,
-			Rulesets:  mb.Rulesets,
+			Packages:  mb.Use,
 			Knowledge: mb.Knowledge.Fields(),
 		})
 	}

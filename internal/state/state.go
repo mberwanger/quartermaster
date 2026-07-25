@@ -34,7 +34,7 @@ type State struct {
 type Bundle struct {
 	Source   string   `json:"source"`
 	Digest   string   `json:"digest"`
-	Rulesets []string `json:"rulesets"`
+	Packages []string `json:"packages"`
 	// Knowledge names the frontmatter fields the repository filtered the
 	// knowledge tree on, so a partial tree is never mistaken for the whole one.
 	Knowledge []string `json:"knowledge,omitempty"`

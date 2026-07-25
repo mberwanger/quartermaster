@@ -105,8 +105,8 @@ func (v *publishCmd) run(out io.Writer) error {
 }
 
 func rulesetNames(b *bundle.Bundle) string {
-	names := make([]string, 0, len(b.Rulesets))
-	for _, rs := range b.Rulesets {
+	names := make([]string, 0, len(b.Packages))
+	for _, rs := range b.Packages {
 		names = append(names, rs.Name)
 	}
 	return strings.Join(names, ",")

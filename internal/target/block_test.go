@@ -66,7 +66,7 @@ func TestAgentsMDPointer(t *testing.T) {
 			{ID: "r", Description: "resident one"},
 			{ID: "s", Scope: []string{"**/*.go"}, Description: "scoped one"},
 		},
-		Bundles: []Bundle{{Digest: "sha256:xyz", Rulesets: []string{"voice"}}},
+		Bundles: []Bundle{{Digest: "sha256:xyz", Packages: []string{"voice"}}},
 	})
 	if len(out.Files) != 0 || len(out.Blocks) != 1 {
 		t.Fatalf("expected 0 files, 1 block; got %d/%d", len(out.Files), len(out.Blocks))

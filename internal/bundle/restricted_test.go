@@ -5,28 +5,28 @@ import (
 	"testing"
 
 	"github.com/mberwanger/quartermaster/internal/config"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
+	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
 // buildWith runs a build against the fixture with an explicit ruleset file and
 // config, which is how the no-requirements cases are exercised.
-func buildWith(t *testing.T, cfg *config.Config, rs ruleset.File) (*Bundle, error) {
+func buildWith(t *testing.T, cfg *config.Config, rs pack.File) (*Bundle, error) {
 	t.Helper()
-	return Build(Options{Root: fixture, Config: cfg, Rulesets: rs})
+	return Build(Options{Root: fixture, Config: cfg, Packages: rs})
 }
 
 // A store may decline to state any requirements. Everything then qualifies, and
 // a ruleset can name a draft — the author opted out of the guard knowingly.
 func TestNoRequirementsAllowsDraft(t *testing.T) {
 	cfg := &config.Config{Include: []string{"**/*.md"}, Exclude: []string{"meta/templates/**"}}
-	rs := ruleset.File{"core": {Docs: []ruleset.DocRef{{ID: "eng.draft"}}}}
+	rs := pack.File{"core": {Rules: []pack.Ref{{ID: "eng.draft"}}}}
 
 	b, err := buildWith(t, cfg, rs)
 	if err != nil {
 		t.Fatalf("build with no requirements: %v", err)
 	}
-	if len(b.Rulesets) != 1 || len(b.Rulesets[0].Docs) != 1 {
-		t.Fatalf("rulesets = %+v, want one ruleset with one doc", b.Rulesets)
+	if len(b.Packages) != 1 || len(b.Packages[0].Rules) != 1 {
+		t.Fatalf("rulesets = %+v, want one ruleset with one doc", b.Packages)
 	}
 }
 
@@ -35,7 +35,7 @@ func TestNoRequirementsAllowsDraft(t *testing.T) {
 // ruleset pointing at a file it does not contain.
 func TestNoRequirementsStillBlocksRestricted(t *testing.T) {
 	cfg := &config.Config{Include: []string{"**/*.md"}, Exclude: []string{"meta/templates/**"}}
-	rs := ruleset.File{"core": {Docs: []ruleset.DocRef{{ID: "eng.secret"}}}}
+	rs := pack.File{"core": {Rules: []pack.Ref{{ID: "eng.secret"}}}}
 
 	_, err := buildWith(t, cfg, rs)
 	if err == nil {
@@ -56,8 +56,8 @@ func TestCompiledRulesetsResolveToCarriedFiles(t *testing.T) {
 		carried[f.Path] = true
 	}
 
-	for _, rs := range b.Rulesets {
-		for _, d := range rs.Docs {
+	for _, rs := range b.Packages {
+		for _, d := range rs.Rules {
 			if !carried[d.Path] {
 				t.Fatalf("ruleset %q references %s, which the bundle does not carry", rs.Name, d.Path)
 			}

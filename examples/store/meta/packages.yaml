@@ -1,37 +1,36 @@
-# Rulesets are named selections of documents. They hold no content — the
-# documents live in the store either way — and they are not tied to any
-# particular agent tool. A ruleset renders into every target a repository
-# configures.
+# Packages are named selections. They hold no content — the documents live in
+# the store either way — and they are not tied to any particular agent tool. A
+# package renders into every target a repository configures.
 #
 # These are shaped by team and topic, which is the useful shape: a repository
 # takes the sets that describe the work it does.
 
 # Every engineer gets these, whatever they work on.
 engineering:
-  docs:
+  rules:
     # No scope on the document, so this one loads in every session.
-    - id: eng.api-versioning
+    - eng.api-versioning
     # These declare scope: ["**/*.go"], so they load only when Go is open.
-    - id: eng.error-handling
-    - id: eng.logging
+    - eng.error-handling
+    - eng.logging
 
 # Billing work, taken on top of engineering.
 billing:
-  docs:
-    - id: billing.money-representation
-    - id: billing.payment-retries
+  rules:
+    - billing.money-representation
+    - billing.payment-retries
 
 # Eligibility work. A billing repository takes neither this ruleset nor,
 # with a knowledge filter, the documents behind it.
 eligibility:
-  docs:
-    - id: eligibility.coverage-effective-dates
+  rules:
+    - eligibility.coverage-effective-dates
 
 # The same document, scoped differently for a different consumer. Scope is a
 # property of the consumer, not of the knowledge: a service repository wants the
 # logging rule only when Go is open, while a repository that reviews incidents
 # wants it loaded all the time.
 incident-review:
-  docs:
+  rules:
     - id: eng.logging
       scope: []

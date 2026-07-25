@@ -62,7 +62,7 @@ func (v *statusCmd) run(out io.Writer) error {
 	for _, bd := range r.Bundles {
 		fmt.Fprintf(&b, "  %s\n", bd.Source)
 		fmt.Fprintf(&b, "    digest    %s\n", bd.Digest)
-		fmt.Fprintf(&b, "    rulesets  %s\n", strings.Join(bd.Rulesets, ", "))
+		fmt.Fprintf(&b, "    packages  %s\n", strings.Join(bd.Packages, ", "))
 		if len(bd.Knowledge) > 0 {
 			// A filtered tree is a partial one; say so rather than let the doc
 			// count read as the whole store.

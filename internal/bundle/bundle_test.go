@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/mberwanger/quartermaster/internal/config"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
+	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
 const fixture = "testdata/store"
@@ -18,12 +18,12 @@ func buildFixture(t *testing.T) *Bundle {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	rs, err := ruleset.Load(filepath.Join(fixture, cfg.Rulesets))
+	rs, err := pack.Load(filepath.Join(fixture, cfg.Packages))
 	if err != nil {
 		t.Fatalf("load rulesets: %v", err)
 	}
 
-	b, err := Build(Options{Root: fixture, Config: cfg, Rulesets: rs, Repo: "example", Commit: "deadbeef"})
+	b, err := Build(Options{Root: fixture, Config: cfg, Packages: rs, Repo: "example", Commit: "deadbeef"})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -45,8 +45,8 @@ func TestBuildCatalog(t *testing.T) {
 	if !slices.Equal(ids, want) {
 		t.Fatalf("catalog ids = %v, want %v", ids, want)
 	}
-	if b.Meta.Format != "0.3" {
-		t.Fatalf("format = %q, want 0.3", b.Meta.Format)
+	if b.Meta.Format != "0.4" {
+		t.Fatalf("format = %q, want 0.4", b.Meta.Format)
 	}
 }
 
@@ -63,17 +63,17 @@ func TestBuildRulesetScopeResolution(t *testing.T) {
 	b := buildFixture(t)
 
 	byName := map[string]Compiled{}
-	for _, c := range b.Rulesets {
+	for _, c := range b.Packages {
 		byName[c.Name] = c
 	}
 
 	core, ok := byName["core"]
-	if !ok || len(core.Docs) != 2 {
+	if !ok || len(core.Rules) != 2 {
 		t.Fatalf("core ruleset = %+v, want 2 docs", core)
 	}
 	// eng.logging picks up its document-default scope; eng.errors stays
 	// unscoped (resident).
-	for _, d := range core.Docs {
+	for _, d := range core.Rules {
 		switch d.ID {
 		case "eng.logging":
 			if !slices.Equal(d.Scope, []string{"**/*.go"}) {
@@ -88,7 +88,7 @@ func TestBuildRulesetScopeResolution(t *testing.T) {
 
 	// go-service overrides the scope for its own use.
 	gs := byName["go-service"]
-	if len(gs.Docs) != 1 || !slices.Equal(gs.Docs[0].Scope, []string{"**/*.go"}) {
+	if len(gs.Rules) != 1 || !slices.Equal(gs.Rules[0].Scope, []string{"**/*.go"}) {
 		t.Fatalf("go-service = %+v, want one doc scoped [**/*.go]", gs)
 	}
 }
@@ -105,4 +105,4 @@ func TestBuildDeterministic(t *testing.T) {
 }
 
 // Compiled is re-exported from the ruleset package for brevity in this test.
-type Compiled = ruleset.Compiled
+type Compiled = pack.Compiled

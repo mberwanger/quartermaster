@@ -26,8 +26,8 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/doc"
+	"github.com/mberwanger/quartermaster/internal/pack"
 	"github.com/mberwanger/quartermaster/internal/provider"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
 	"github.com/mberwanger/quartermaster/internal/target"
 )
 
@@ -96,10 +96,10 @@ func OpenAt(source, baseDir string, opts ...Option) (*Bundle, error) {
 // knowledge and code version independently.
 func (b *Bundle) Digest() string { return b.b.Meta.Digest }
 
-// Rulesets lists the ruleset names the bundle offers, sorted.
-func (b *Bundle) Rulesets() []string {
-	names := make([]string, 0, len(b.b.Rulesets))
-	for _, rs := range b.b.Rulesets {
+// Packages lists the package names the bundle offers, sorted.
+func (b *Bundle) Packages() []string {
+	names := make([]string, 0, len(b.b.Packages))
+	for _, rs := range b.b.Packages {
 		names = append(names, rs.Name)
 	}
 	sort.Strings(names)
@@ -160,11 +160,14 @@ func (b *Bundle) Rules(rulesets ...string) (string, error) {
 		}
 		byName[name] = true
 
-		rs, ok := b.ruleset(name)
+		rs, ok := b.pkg(name)
 		if !ok {
-			return "", fmt.Errorf("bundle has no ruleset %q", name)
+			return "", fmt.Errorf("bundle has no package %q", name)
 		}
-		for _, cd := range rs.Docs {
+		// Rules only. A skill is loaded when the work matches and an agent is
+		// spawned, so neither belongs in an instruction string that is paid for
+		// in every request.
+		for _, cd := range rs.Rules {
 			if seen[cd.ID] {
 				continue
 			}
@@ -172,7 +175,7 @@ func (b *Bundle) Rules(rulesets ...string) (string, error) {
 
 			body, ok := b.bodyByID[cd.ID]
 			if !ok {
-				return "", fmt.Errorf("ruleset %q references %s, absent from the bundle", name, cd.ID)
+				return "", fmt.Errorf("package %q references %s, absent from the bundle", name, cd.ID)
 			}
 			sections = append(sections, string(target.RuleBody(doc.Prose(body))))
 		}
@@ -181,13 +184,13 @@ func (b *Bundle) Rules(rulesets ...string) (string, error) {
 	return strings.Join(sections, "\n\n"), nil
 }
 
-func (b *Bundle) ruleset(name string) (ruleset.Compiled, bool) {
-	for _, rs := range b.b.Rulesets {
+func (b *Bundle) pkg(name string) (pack.Compiled, bool) {
+	for _, rs := range b.b.Packages {
 		if rs.Name == name {
 			return rs, true
 		}
 	}
-	return ruleset.Compiled{}, false
+	return pack.Compiled{}, false
 }
 
 func str(v any) string {

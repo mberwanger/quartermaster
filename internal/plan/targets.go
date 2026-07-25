@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
+	"github.com/mberwanger/quartermaster/internal/pack"
 	"github.com/mberwanger/quartermaster/internal/state"
 	"github.com/mberwanger/quartermaster/internal/target"
 )
@@ -32,16 +32,16 @@ func ResolveTargets(names []string) ([]target.Target, error) {
 func bundlesForTarget(bundles []state.Bundle) []target.Bundle {
 	out := make([]target.Bundle, 0, len(bundles))
 	for _, b := range bundles {
-		out = append(out, target.Bundle{Source: b.Source, Digest: b.Digest, Rulesets: b.Rulesets})
+		out = append(out, target.Bundle{Source: b.Source, Digest: b.Digest, Packages: b.Packages})
 	}
 	return out
 }
 
-func findRuleset(b *bundle.Bundle, name string) (ruleset.Compiled, bool) {
-	for _, c := range b.Rulesets {
+func findPackage(b *bundle.Bundle, name string) (pack.Compiled, bool) {
+	for _, c := range b.Packages {
 		if c.Name == name {
 			return c, true
 		}
 	}
-	return ruleset.Compiled{}, false
+	return pack.Compiled{}, false
 }

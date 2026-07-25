@@ -17,7 +17,7 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/config"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
+	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
 // Auth carries credentials for a remote source. Its zero value means none, and
@@ -130,15 +130,15 @@ func build(root string) (*bundle.Bundle, error) {
 		return nil, err
 	}
 
-	var rs ruleset.File
-	if cfg.Rulesets != "" {
-		rs, err = ruleset.Load(filepath.Join(root, cfg.Rulesets))
+	var packages pack.File
+	if cfg.Packages != "" {
+		packages, err = pack.Load(filepath.Join(root, cfg.Packages))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return bundle.Build(bundle.Options{Root: root, Config: cfg, Rulesets: rs})
+	return bundle.Build(bundle.Options{Root: root, Config: cfg, Packages: packages})
 }
 
 func exists(path string) bool {

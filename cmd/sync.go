@@ -104,7 +104,7 @@ func writeReport(out io.Writer, r *plan.Result, pruned int) {
 	}
 	for _, bd := range r.Bundles {
 		fmt.Fprintf(&b, "✓ %s  %s\n", bd.Source, bd.Digest)
-		fmt.Fprintf(&b, "  rulesets  %s\n", strings.Join(bd.Rulesets, ", "))
+		fmt.Fprintf(&b, "  packages  %s\n", strings.Join(bd.Packages, ", "))
 	}
 	fmt.Fprintf(&b, "  → rules       %d resident, %d scoped  (%d B resident)\n", resident, scoped, r.ResidentBytes)
 	if len(r.Skills) > 0 {

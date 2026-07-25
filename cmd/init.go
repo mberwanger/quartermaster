@@ -164,8 +164,8 @@ func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 			return nil, fmt.Errorf("resolve %s: %w", src, err)
 		}
 
-		offered := make(map[string]bool, len(b.Rulesets))
-		for _, rs := range b.Rulesets {
+		offered := make(map[string]bool, len(b.Packages))
+		for _, rs := range b.Packages {
 			offered[rs.Name] = true
 		}
 
@@ -173,7 +173,7 @@ func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 		// for. Without a filter, fall back to the bundle's own order.
 		var names []string
 		if len(want) == 0 {
-			for _, rs := range b.Rulesets {
+			for _, rs := range b.Packages {
 				names = append(names, rs.Name)
 			}
 		} else {

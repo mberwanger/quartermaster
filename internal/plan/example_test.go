@@ -26,7 +26,7 @@ func exampleManifest(t *testing.T, body string) string {
 func TestExampleBillingRepository(t *testing.T) {
 	dir := exampleManifest(t, "bundles:\n"+
 		"  - source: file://{{store}}\n"+
-		"    rulesets: [engineering, billing]\n"+
+		"    use: [engineering, billing]\n"+
 		"    knowledge:\n      domain: [engineering, billing]\n"+
 		"targets:\n  - claude\n")
 
@@ -71,14 +71,14 @@ func TestExampleBillingRepository(t *testing.T) {
 	}
 }
 
-// The same document is Go-scoped under one ruleset and always-loaded under
+// The same document is Go-scoped under one package and always-loaded under
 // another. This is the property the walkthrough leads with.
 func TestExampleScopeIsPerConsumer(t *testing.T) {
 	scopeOf := func(t *testing.T, rulesets string) []string {
 		t.Helper()
 		dir := exampleManifest(t, "bundles:\n"+
 			"  - source: file://{{store}}\n"+
-			"    rulesets: ["+rulesets+"]\n"+
+			"    use: ["+rulesets+"]\n"+
 			"targets:\n  - claude\n")
 		r, err := Compute(dir)
 		if err != nil {
@@ -105,13 +105,13 @@ func TestExampleScopeIsPerConsumer(t *testing.T) {
 func TestExampleFilterContradiction(t *testing.T) {
 	dir := exampleManifest(t, "bundles:\n"+
 		"  - source: file://{{store}}\n"+
-		"    rulesets: [eligibility]\n"+
+		"    use: [eligibility]\n"+
 		"    knowledge:\n      domain: [engineering, billing]\n"+
 		"targets:\n  - claude\n")
 
 	_, err := Compute(dir)
 	if err == nil {
-		t.Fatal("expected the ruleset and the filter to contradict")
+		t.Fatal("expected the package and the filter to contradict")
 	}
 	if !strings.Contains(err.Error(), "eligibility.coverage-effective-dates") {
 		t.Fatalf("error should name the document, got: %v", err)

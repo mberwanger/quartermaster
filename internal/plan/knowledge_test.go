@@ -18,7 +18,7 @@ func manifestWith(t *testing.T, rulesets, knowledge string) string {
 	dir := t.TempDir()
 	writeManifest(t, dir, "bundles:\n"+
 		"  - source: file://"+store+"\n"+
-		"    rulesets: ["+rulesets+"]\n"+
+		"    use: ["+rulesets+"]\n"+
 		knowledge+
 		"targets:\n  - claude\n")
 	return dir
@@ -92,13 +92,13 @@ func TestFilterOnScalarField(t *testing.T) {
 	}
 }
 
-// Selecting a ruleset whose document the filter excludes is a contradiction, and
+// Selecting a package whose document the filter excludes is a contradiction, and
 // must be reported rather than silently resolved either way.
 func TestFilterContradictingRulesetFails(t *testing.T) {
 	_, err := Compute(manifestWith(t, "core",
 		"    knowledge:\n      tags: [observability]\n"))
 	if err == nil {
-		t.Fatal("expected a contradiction between the ruleset and the filter")
+		t.Fatal("expected a contradiction between the package and the filter")
 	}
 	// core needs eng.errors, which is tagged go rather than observability.
 	if !strings.Contains(err.Error(), "eng.errors") || !strings.Contains(err.Error(), "knowledge filter") {

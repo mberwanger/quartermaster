@@ -1,6 +1,6 @@
 name: example-knowledge
 schema: meta/frontmatter.schema.json
-rulesets: meta/rulesets.yaml
+packages: meta/packages.yaml
 
 include: ["**/*.md"]
 exclude: ["meta/templates/**"]

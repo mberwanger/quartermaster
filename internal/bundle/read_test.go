@@ -30,8 +30,8 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	if len(got.Catalog) != len(orig.Catalog) {
 		t.Fatalf("catalog: read %d, built %d", len(got.Catalog), len(orig.Catalog))
 	}
-	if len(got.Rulesets) != len(orig.Rulesets) {
-		t.Fatalf("rulesets: read %d, built %d", len(got.Rulesets), len(orig.Rulesets))
+	if len(got.Packages) != len(orig.Packages) {
+		t.Fatalf("rulesets: read %d, built %d", len(got.Packages), len(orig.Packages))
 	}
 	if len(got.Files) != len(orig.Files) {
 		t.Fatalf("files: read %d, built %d", len(got.Files), len(orig.Files))

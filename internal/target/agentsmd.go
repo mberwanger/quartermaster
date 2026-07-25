@@ -33,8 +33,8 @@ func (agentsMD) Render(in Input) (Output, error) {
 
 	for _, bd := range in.Bundles {
 		fmt.Fprintf(&b, "Knowledge bundle `%s`", bd.Digest)
-		if len(bd.Rulesets) > 0 {
-			fmt.Fprintf(&b, " — rulesets: %s", strings.Join(bd.Rulesets, ", "))
+		if len(bd.Packages) > 0 {
+			fmt.Fprintf(&b, " — packages: %s", strings.Join(bd.Packages, ", "))
 		}
 		b.WriteString("\n")
 	}

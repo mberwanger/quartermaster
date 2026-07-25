@@ -11,7 +11,7 @@ import (
 const (
 	MetaName     = "meta.json"
 	CatalogName  = "catalog.json"
-	RulesetsName = "rulesets.json"
+	PackagesName = "packages.json"
 	StoreMDName  = "store.md"
 	StoreDir     = "store"
 	// ControlsDir holds fixtures the review and audit jobs read and no agent
@@ -48,7 +48,7 @@ func Write(b *Bundle, dir string) error {
 	if err := writeJSON(r, CatalogName, b.Catalog); err != nil {
 		return err
 	}
-	if err := writeJSON(r, RulesetsName, b.Rulesets); err != nil {
+	if err := writeJSON(r, PackagesName, b.Packages); err != nil {
 		return err
 	}
 	if err := r.WriteFile(StoreMDName, []byte(b.StoreMD), 0o600); err != nil {

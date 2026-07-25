@@ -42,16 +42,14 @@ type Bundle struct {
 	// readability. A file:// source tree has no stable digest and may leave it
 	// empty.
 	Digest string `yaml:"digest"`
-	// Rulesets names the selections to apply from this bundle.
-	Rulesets []string `yaml:"rulesets"`
-	// Skills names the skills to materialize, by document id. A skill is loaded
-	// on demand rather than pushed at the agent, so it costs no context until it
-	// is chosen and is never counted against the resident budget.
-	Skills []string `yaml:"skills"`
-	// Agents names the agent definitions to materialize, by document id. An
-	// agent is a capability rather than text, carrying its own tool allowlist
-	// and permissions, so a repository opts into each one by name.
-	Agents []string `yaml:"agents"`
+	// Use names the packages to apply from this bundle, in precedence order.
+	//
+	// One name rather than three lists. A package carries the rules, skills, and
+	// agents that belong together, so a repository declares which team's set it
+	// wants and the store decides what is in it. Adding a skill to a team is
+	// then a change in the store rather than a pull request against every
+	// repository that should have it.
+	Use []string `yaml:"use"`
 	// Knowledge scopes which of the bundle's documents are written to the
 	// knowledge tree, matching on any frontmatter field. Empty means all of
 	// them.

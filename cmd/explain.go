@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/spf13/cobra"
 
 	"github.com/mberwanger/quartermaster/internal/config"
 	"github.com/mberwanger/quartermaster/internal/doc"
-	"github.com/mberwanger/quartermaster/internal/ruleset"
+	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
 type explainCmd struct {
@@ -66,7 +67,7 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 		return fmt.Errorf("no document has id %q under %s", id, v.root)
 	}
 
-	rulesets, err := loadRulesets(v.root, cfg)
+	packages, err := loadPackages(v.root, cfg)
 	if err != nil {
 		return err
 	}
@@ -92,7 +93,7 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 		fmt.Fprintf(&b, "  requires    not met: %s\n", reason)
 	}
 
-	referencing := rulesetsReferencing(rulesets, id)
+	referencing := packagesReferencing(packages, id)
 	if len(referencing) == 0 {
 		fmt.Fprintf(&b, "  rulesets    none reference it\n")
 	} else {
@@ -116,24 +117,40 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 	return err
 }
 
-func loadRulesets(root string, cfg *config.Config) (ruleset.File, error) {
-	if cfg.Rulesets == "" {
-		return ruleset.File{}, nil
+func loadPackages(root string, cfg *config.Config) (pack.File, error) {
+	if cfg.Packages == "" {
+		return pack.File{}, nil
 	}
-	return ruleset.Load(filepath.Join(root, cfg.Rulesets))
+	return pack.Load(filepath.Join(root, cfg.Packages))
 }
 
-func rulesetsReferencing(f ruleset.File, id string) []string {
+// packagesReferencing reports which packages name a document, by any of the
+// three lists. A pattern is reported when it matches, so an author can see that
+// a document is selected without a package naming it outright.
+func packagesReferencing(f pack.File, id string) []string {
 	var out []string
 	for _, name := range f.Names() {
-		for _, ref := range f[name].Docs {
-			if ref.ID == id {
-				out = append(out, name)
-				break
-			}
+		p := f[name]
+		if selects(p.Rules, id) || selects(p.Skills, id) || selects(p.Agents, id) {
+			out = append(out, name)
 		}
 	}
 	return out
+}
+
+func selects(refs []pack.Ref, id string) bool {
+	for _, ref := range refs {
+		if ref.ID == "" {
+			continue // a where clause needs the document's frontmatter to judge
+		}
+		if ref.ID == id {
+			return true
+		}
+		if ok, err := doublestar.Match(strings.ReplaceAll(ref.ID, ".", "/"), strings.ReplaceAll(id, ".", "/")); err == nil && ok {
+			return true
+		}
+	}
+	return false
 }
 
 func yesNo(cond bool, yes, no string) string {

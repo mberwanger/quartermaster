@@ -33,9 +33,10 @@ func Read(dir string) (*Bundle, error) {
 	if err := readJSON(fsys, CatalogName, &b.Catalog); err != nil {
 		return nil, err
 	}
-	// rulesets.json is absent in a 0.2 bundle; treat that as no rulesets rather
-	// than an error, so an older artifact still resolves.
-	if err := readJSON(fsys, RulesetsName, &b.Rulesets); err != nil && !os.IsNotExist(err) {
+	// packages.json is absent in an older bundle; treat that as no packages
+	// rather than an error, so the failure is "this bundle offers nothing"
+	// rather than an unreadable artifact.
+	if err := readJSON(fsys, PackagesName, &b.Packages); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 

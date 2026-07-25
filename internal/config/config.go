@@ -25,15 +25,15 @@ import (
 // FileName is the declaration a store repository carries at its root.
 const FileName = "bundle.yaml"
 
-// Config is a parsed bundle.yaml. Paths in it (Schema, Rulesets) are relative
+// Config is a parsed bundle.yaml. Paths in it (Schema, Packages) are relative
 // to the store root.
 type Config struct {
 	// Name is the store's name, recorded in the bundle for readability.
 	Name string `yaml:"name"`
 	// Schema points at the frontmatter JSON Schema, relative to the store root.
 	Schema string `yaml:"schema"`
-	// Rulesets points at the rulesets file, relative to the store root.
-	Rulesets string `yaml:"rulesets"`
+	// Packages points at the packages file, relative to the store root.
+	Packages string `yaml:"packages"`
 	// Include is the set of glob patterns a file must match to be a document.
 	// It defaults to every markdown file.
 	Include []string `yaml:"include"`
