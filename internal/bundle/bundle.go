@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -238,8 +239,18 @@ func Build(opts Options) (*Bundle, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// An index is a navigation aid, so it may only advertise what travels with
+	// it. A directory whose documents are all excluded still has an index.md on
+	// disk in the store, and carrying it would put a listing in a consuming
+	// repository pointing at files the bundle deliberately left behind.
+	indexed := indexedDirs(docs, restrictedPaths)
+
 	for _, f := range files {
 		if restrictedPaths[f.Path] {
+			continue
+		}
+		if doc.Reserved(path.Base(f.Path)) && !indexed[path.Dir(f.Path)] {
 			continue
 		}
 		if opts.Config.IsControl(f.Path) {
@@ -262,6 +273,24 @@ func Build(opts Options) (*Bundle, error) {
 	b.Meta.Digest = digest
 
 	return b, nil
+}
+
+// indexedDirs is every directory the bundle carries a document in, plus their
+// ancestors, which is exactly where an index still has something to point at.
+func indexedDirs(docs []doc.Doc, restricted map[string]bool) map[string]bool {
+	out := map[string]bool{}
+	for _, d := range docs {
+		if restricted[d.Path] {
+			continue
+		}
+		for dir := path.Dir(d.Path); ; dir = path.Dir(dir) {
+			out[dir] = true
+			if dir == "." {
+				break
+			}
+		}
+	}
+	return out
 }
 
 // restricted reports whether a document must never enter the artifact.

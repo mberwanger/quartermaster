@@ -71,9 +71,14 @@ func Build(root string, cfg *config.Config) ([]File, error) {
 		return nil, err
 	}
 
+	// Distributed rather than merely a document. An index is a navigation aid
+	// that travels in the bundle and lands in a consuming repository, so listing
+	// something the bundle does not carry points an agent at a file that is not
+	// there. Templates are the case that shows it: they are documents, so they
+	// are validated, and they are excluded, so they must not be advertised.
 	var docs []doc.Doc
 	for _, d := range all {
-		if cfg.IsDocument(d.Path) {
+		if cfg.IsDistributed(d.Path) {
 			docs = append(docs, d)
 		}
 	}
