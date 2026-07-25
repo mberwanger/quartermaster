@@ -1,0 +1,17 @@
+# Named selections. A repository asks for one by name and gets the rules, skills,
+# and agents that belong together, so a team's set lives here rather than as an
+# id list in every repository that wants it.
+#
+# Selections are patterns, and a plain id is a pattern with no wildcard, so
+# skills.data.* takes a whole set without naming its members.
+#
+# Push rules sparingly: a resident rule is paid for in every session, and a
+# document an agent would know to look for belongs in a skill instead.
+#
+# Add one once there is something to select, for example:
+#
+# go-service:
+#   rules:
+#     - your.document.id
+#   skills:
+#     - skills.engineering.*

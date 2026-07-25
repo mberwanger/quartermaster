@@ -137,6 +137,25 @@ func TestExplicitFailsAndPatternSkips(t *testing.T) {
 	}
 }
 
+// Agents glob like everything else. A team that grows a second reviewer should
+// not have to remember to add it to six packages.
+func TestPatternsSelectAgentsToo(t *testing.T) {
+	docs := append([]doc.Doc{}, store...)
+	docs = append(docs, mk("agents.release-notes", "agent"))
+
+	got, err := Compile(parse(t, "p:\n  agents: [agents.*]\n"), docs, opts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got[0].Agents) != 2 {
+		t.Fatalf("matched %d agents, want 2: %+v", len(got[0].Agents), got[0].Agents)
+	}
+	// And a pattern still refuses to make an agent out of something that is not.
+	if _, err := Compile(parse(t, "p:\n  agents: [engineering.commit-messages]\n"), docs, opts()); err == nil {
+		t.Error("naming a concept as an agent should fail")
+	}
+}
+
 func TestUnknownIdFails(t *testing.T) {
 	if _, err := Compile(parse(t, "p:\n  skills: [skills.nope]\n"), store, opts()); err == nil {
 		t.Error("an unknown id should fail")

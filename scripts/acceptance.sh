@@ -6,7 +6,7 @@
 # it, and asserts that every content type the store carries actually lands where
 # the harness expects it. Then it exercises the rest of the consumer surface,
 # including the paths that are supposed to fail: a tampered file must fail
-# verify, and a dropped ruleset must prune what it produced.
+# verify, and a dropped package must prune what it produced.
 #
 # It touches nothing outside its own temporary directory. The cache, usage log,
 # spool, and facet directories are all redirected, so running this never writes
@@ -15,13 +15,13 @@
 # Usage:
 #   scripts/acceptance.sh [path-to-store]
 #
-# The store defaults to ../admiral-knowledge/store. Any OKF store works; what
-# the assertions need is at least one rule, one skill, one agent, and a
-# knowledge tree, which the script verifies before it starts asserting.
+# The store defaults to ../quartermaster-knowledge. Any OKF store works; what the
+# assertions need is a package that carries a rule, a skill, and an agent, which
+# the script verifies before it starts asserting.
 
 set -uo pipefail
 
-STORE="${1:-$(cd "$(dirname "$0")/../../../admiral/admiral-knowledge/store" 2>/dev/null && pwd)}"
+STORE="${1:-$(cd "$(dirname "$0")/../../quartermaster-knowledge" 2>/dev/null && pwd)}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 PASS=0
@@ -94,23 +94,19 @@ succeeds "qm bundle validate accepts the store" "$QM" bundle validate --root "$S
 SKILL_ID="$(grep -rl '^type: skill' "$STORE" | head -1 | xargs grep -h '^id:' | awk '{print $2}')"
 AGENT_ID="$(grep -rl '^type: agent' "$STORE" | head -1 | xargs grep -h '^id:' | awk '{print $2}')"
 
-# Prefer a ruleset that selects a scoped document. Resident and scoped rules
-# render differently, and the difference is the whole reason a budget exists, so
-# testing whichever ruleset happens to be listed first leaves that untested.
-RULESET=""
-SCOPED_IDS="$(grep -rl '^scope:' "$STORE" | xargs grep -h '^id:' 2>/dev/null | awk '{print $2}')"
-for candidate in $(grep -E '^[a-z][a-z-]*:' "$STORE"/meta/rulesets.yaml | tr -d ':'); do
-  [ -z "$RULESET" ] && RULESET="$candidate"
-  block="$(awk -v r="^$candidate:" '$0 ~ r {f=1; next} /^[a-z]/ {f=0} f' "$STORE"/meta/rulesets.yaml)"
-  for id in $SCOPED_IDS; do
-    if printf '%s' "$block" | grep -q -- "$id"; then RULESET="$candidate"; break 2; fi
-  done
-done
+# Pick the package that carries the most, so one selection exercises rules,
+# skills, and agents together. That is the whole point of a package: a repository
+# names one thing and gets the set.
+PACKAGE="$("$QM" bundle build --root "$STORE" --out "$TMP/probe" >/dev/null 2>&1 && \
+  jq -r 'map({name, n: ((.rules|length) + (.skills|length) + (.agents|length))}) | sort_by(-.n) | .[0].name' "$TMP/probe/packages.json")"
 
-printf '  ruleset=%s skill=%s agent=%s\n' "${RULESET:-none}" "${SKILL_ID:-none}" "${AGENT_ID:-none}"
-[ -n "$RULESET" ] && pass "store offers a ruleset" || fail "store offers a ruleset"
-[ -n "$SKILL_ID" ] && pass "store offers a skill" || fail "store offers a skill"
-[ -n "$AGENT_ID" ] && pass "store offers an agent" || fail "store offers an agent"
+SKILL_ID="$(jq -r --arg p "$PACKAGE" '.[] | select(.name==$p) | .skills[0].id // empty' "$TMP/probe/packages.json")"
+AGENT_ID="$(jq -r --arg p "$PACKAGE" '.[] | select(.name==$p) | .agents[0].id // empty' "$TMP/probe/packages.json")"
+
+printf '  package=%s skill=%s agent=%s\n' "${PACKAGE:-none}" "${SKILL_ID:-none}" "${AGENT_ID:-none}"
+[ -n "$PACKAGE" ] && pass "store offers a package" || fail "store offers a package"
+[ -n "$SKILL_ID" ] && pass "the package carries a skill" || fail "the package carries a skill"
+[ -n "$AGENT_ID" ] && pass "the package carries an agent" || fail "the package carries an agent"
 
 section 'init'
 mkdir -p "$REPO"
@@ -118,9 +114,9 @@ git -C "$REPO" init -q
 git -C "$REPO" remote add origin git@github.com:example/acceptance.git
 git -C "$REPO" commit -q --allow-empty -m "initial"
 
-succeeds "qm init" "$QM" init --dir "$REPO" --source "file://$STORE" --target claude --ruleset "$RULESET"
+succeeds "qm init" "$QM" init --dir "$REPO" --source "file://$STORE" --target claude --package "$PACKAGE"
 exists   "manifest written"            "$REPO/.quartermaster.yaml"
-contains "manifest names the ruleset"  "$REPO/.quartermaster.yaml" "$RULESET"
+contains "manifest names the package"  "$REPO/.quartermaster.yaml" "$PACKAGE"
 contains "telemetry opted in"          "$REPO/.quartermaster.yaml" "telemetry: true"
 exists   "gitignore written"           "$REPO/.gitignore"
 contains "gitignore covers qm state"   "$REPO/.gitignore" "/.quartermaster/"
@@ -146,28 +142,12 @@ if [ "$DOCS" -gt 0 ]; then pass "knowledge documents on disk ($DOCS)"; else fail
 if grep -rlq '^paths:' "$REPO/.claude/rules/qm" 2>/dev/null; then
   pass "a scoped rule declares paths"
 else
-  printf '  note  no scoped rule in this ruleset; scope rendering not exercised\n'
+  printf '  note  no scoped rule in this package; scope rendering not exercised\n'
 fi
 
-section 'skills and agents install when selected'
-# Skills and agents are named in the manifest by id rather than selected by a
-# ruleset, so this is what a repository opting into one looks like.
-python3 - "$REPO/.quartermaster.yaml" "$SKILL_ID" "$AGENT_ID" <<'PY'
-import sys, pathlib
-path, skill, agent = sys.argv[1], sys.argv[2], sys.argv[3]
-p = pathlib.Path(path)
-lines = p.read_text().splitlines(keepends=True)
-out = []
-for line in lines:
-    out.append(line)
-    if line.strip().startswith("rulesets:"):
-        if skill:
-            out.append(f"    skills: [{skill}]\n")
-        if agent:
-            out.append(f"    agents: [{agent}]\n")
-p.write_text("".join(out))
-PY
-succeeds "qm sync after selecting a skill and an agent" "$QM" sync --dir "$REPO"
+section 'skills and agents arrive with the package'
+# Nothing is edited here. The package named at init carried the skill and the
+# agent, which is the difference from listing ids per repository.
 
 if [ -n "$SKILL_ID" ]; then
   SKILL_NAME="${SKILL_ID##*.}"
@@ -222,16 +202,16 @@ BEFORE="$(find "$REPO/.claude/rules/qm" -name '*.md' | wc -l | tr -d ' ')"
 python3 - "$REPO/.quartermaster.yaml" <<'PY'
 import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
-p.write_text(re.sub(r"^\s*rulesets:.*$", "    rulesets: []", p.read_text(), flags=re.M))
+p.write_text(re.sub(r"^\s*use:.*$", "    use: []", p.read_text(), flags=re.M))
 PY
-succeeds "qm sync with no rulesets" "$QM" sync --dir "$REPO"
+succeeds "qm sync with no packages" "$QM" sync --dir "$REPO"
 AFTER="$(find "$REPO/.claude/rules/qm" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
 if [ "$AFTER" -lt "$BEFORE" ]; then
   pass "rules pruned when deselected ($BEFORE to $AFTER)"
 else
   fail "rules pruned when deselected (still $AFTER)"
 fi
-exists "knowledge survives losing a ruleset" "$REPO/.quartermaster/knowledge"
+exists "knowledge survives losing a package" "$REPO/.quartermaster/knowledge"
 
 section 'telemetry records only where it should'
 DOC="$(find "$REPO/.quartermaster/knowledge" -name '*.md' ! -name index.md | head -1)"

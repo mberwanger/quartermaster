@@ -1,6 +1,6 @@
 name: {{NAME}}
 schema: meta/frontmatter.schema.json
-rulesets: meta/rulesets.yaml
+packages: meta/packages.yaml
 
 # Every markdown file is a document. Templates are excluded from the bundle
 # because their ids are placeholders, but they are still validated here.

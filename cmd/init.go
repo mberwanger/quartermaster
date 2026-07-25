@@ -20,7 +20,7 @@ type initCmd struct {
 	cmd         *cobra.Command
 	dir         string
 	sources     []string
-	rulesets    []string
+	packages    []string
 	targets     []string
 	noTelemetry bool
 	noHooks     bool
@@ -38,10 +38,12 @@ func newInitCmd() *initCmd {
 the manifest, ready the .gitignore, install the git hooks that keep materialized
 knowledge current, and run the first sync.
 
-Sources are given in precedence order; when two bundles produce a rule with the
-same id, the later source wins. Targets are detected from the repository when not
-given explicitly.`,
-		Example: "  qm init --source file://../platform-knowledge --ruleset voice",
+A package is a named selection the store maintains: it carries the rules, skills,
+and agents that belong together, so a repository names one rather than listing
+ids. Sources are given in precedence order; when two bundles produce a rule with
+the same id, the later source wins. Targets are detected from the repository when
+not given explicitly.`,
+		Example: "  qm init --source oci://ghcr.io/org/knowledge:latest --package go-service",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return v.run(cmd.OutOrStdout())
@@ -50,7 +52,7 @@ given explicitly.`,
 
 	cmd.Flags().StringVar(&v.dir, "dir", ".", "Repository directory to initialize")
 	cmd.Flags().StringArrayVar(&v.sources, "source", nil, "Bundle source URL (repeatable, precedence by order)")
-	cmd.Flags().StringArrayVar(&v.rulesets, "ruleset", nil, "Rulesets to apply (repeatable; default all a source offers)")
+	cmd.Flags().StringArrayVar(&v.packages, "package", nil, "Packages to apply (repeatable; default all a source offers)")
 	cmd.Flags().StringArrayVar(&v.targets, "target", nil, "Harness targets (repeatable; default detected from the repository)")
 	cmd.Flags().BoolVar(&v.noTelemetry, "no-telemetry", false, "Opt out of usage telemetry, and of the session hook that feeds it")
 	cmd.Flags().BoolVar(&v.noHooks, "no-hooks", false, "Do not install git or harness hooks")
@@ -146,13 +148,13 @@ type bundleSpec struct {
 	source   string
 	digest   string
 	pin      bool
-	rulesets []string
+	packages []string
 }
 
-// resolveSources resolves each source, validates it, and selects its rulesets.
+// resolveSources resolves each source, validates it, and selects its packages.
 func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 	want := map[string]bool{}
-	for _, r := range v.rulesets {
+	for _, r := range v.packages {
 		want[r] = true
 	}
 	matched := map[string]bool{}
@@ -177,7 +179,7 @@ func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 				names = append(names, rs.Name)
 			}
 		} else {
-			for _, r := range v.rulesets {
+			for _, r := range v.packages {
 				if offered[r] {
 					names = append(names, r)
 					matched[r] = true
@@ -189,14 +191,14 @@ func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 			source:   src,
 			digest:   b.Meta.Digest,
 			pin:      !strings.HasPrefix(src, "file://"),
-			rulesets: names,
+			packages: names,
 		})
 	}
 
-	// A requested ruleset no source provides is an error the author can fix now.
+	// A requested package no source provides is an error the author can fix now.
 	for r := range want {
 		if !matched[r] {
-			return nil, fmt.Errorf("no source provides ruleset %q", r)
+			return nil, fmt.Errorf("no source provides package %q", r)
 		}
 	}
 	return out, nil
@@ -266,7 +268,7 @@ func writeManifest(path string, bundles []bundleSpec, targets []string, telemetr
 		if bs.pin && bs.digest != "" {
 			fmt.Fprintf(&b, "    digest: %s\n", bs.digest)
 		}
-		fmt.Fprintf(&b, "    rulesets: [%s]\n", strings.Join(bs.rulesets, ", "))
+		fmt.Fprintf(&b, "    use: [%s]\n", strings.Join(bs.packages, ", "))
 	}
 
 	b.WriteString("\ntargets:\n")

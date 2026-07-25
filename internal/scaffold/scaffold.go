@@ -1,5 +1,5 @@
 // Package scaffold writes the files a new knowledge store needs to exist: the
-// bundle declaration, a frontmatter schema, an empty rulesets file, a root
+// bundle declaration, a frontmatter schema, an empty packages file, a root
 // index, and a template to copy from.
 //
 // The result validates and builds as it stands, so `qm bundle init` produces a
