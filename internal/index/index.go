@@ -35,7 +35,7 @@ const Name = doc.IndexName
 
 // rootFrontmatter declares the format version. The store root index is the only
 // index file where frontmatter is permitted.
-const rootFrontmatter = "---\nokf_version: \"0.1\"\n---\n"
+const rootFrontmatter = "---\nokf_version: \"0.2\"\n---\n"
 
 // File is one index.md and the content its generated region should hold.
 type File struct {

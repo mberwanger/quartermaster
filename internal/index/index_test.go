@@ -40,6 +40,18 @@ func newStore(t *testing.T) (string, *config.Config) {
 	return root, cfg
 }
 
+func TestNewRootDeclaresCurrentOKFVersion(t *testing.T) {
+	root, cfg := newStore(t)
+	if _, err := Sync(root, cfg, true); err != nil {
+		t.Fatal(err)
+	}
+
+	got := read(t, root, "index.md")
+	if !strings.HasPrefix(got, "---\nokf_version: \"0.2\"\n---\n") {
+		t.Fatalf("root index does not declare OKF 0.2:\n%s", got)
+	}
+}
+
 // A skill is one unit an agent loads whole, so it gets no listing of its parts —
 // and such a listing would travel into every repository that materializes it.
 func TestSkillDirectoryGetsNoListing(t *testing.T) {
