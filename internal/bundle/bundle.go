@@ -42,8 +42,9 @@ import (
 // skills, and agents together under one name.
 const Version = "0.4"
 
-// okfVersion is the format version the store declares at its root index.
-const okfVersion = "0.1"
+// defaultOKFVersion preserves the format assumed before root declarations were
+// propagated into bundle metadata.
+const defaultOKFVersion = "0.1"
 
 // Meta is the artifact header, written to meta.json.
 type Meta struct {
@@ -121,6 +122,11 @@ var outputSkip = []string{"dist"}
 // from a single store, so the visibility check is enforced here unconditionally
 // and not left to the gate.
 func Build(opts Options) (*Bundle, error) {
+	okfVersion, err := loadOKFVersion(opts.Root)
+	if err != nil {
+		return nil, err
+	}
+
 	all, err := doc.Load(opts.Root, outputSkip)
 	if err != nil {
 		return nil, err
@@ -273,6 +279,32 @@ func Build(opts Options) (*Bundle, error) {
 	b.Meta.Digest = digest
 
 	return b, nil
+}
+
+func loadOKFVersion(root string) (string, error) {
+	storeRoot, err := os.OpenRoot(root)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = storeRoot.Close() }()
+
+	indexBody, err := storeRoot.ReadFile(doc.IndexName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return defaultOKFVersion, nil
+		}
+		return "", err
+	}
+
+	frontmatter, err := doc.Parse(indexBody)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", doc.IndexName, err)
+	}
+	okfVersion, _ := frontmatter["okf_version"].(string)
+	if okfVersion == "" {
+		return defaultOKFVersion, nil
+	}
+	return okfVersion, nil
 }
 
 // indexedDirs is every directory the bundle carries a document in, plus their

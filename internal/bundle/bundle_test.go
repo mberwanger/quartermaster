@@ -1,6 +1,7 @@
 package bundle
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -47,6 +48,59 @@ func TestBuildCatalog(t *testing.T) {
 	}
 	if b.Meta.Format != "0.4" {
 		t.Fatalf("format = %q, want 0.4", b.Meta.Format)
+	}
+}
+
+func TestBuildPropagatesRootOKFVersion(t *testing.T) {
+	tests := []struct {
+		name      string
+		rootIndex string
+		want      string
+	}{
+		{
+			name:      "declared 0.1",
+			rootIndex: "---\nokf_version: \"0.1\"\n---\n\n# Store\n",
+			want:      "0.1",
+		},
+		{
+			name:      "declared 0.2",
+			rootIndex: "---\nokf_version: \"0.2\"\n---\n\n# Store\n",
+			want:      "0.2",
+		},
+		{
+			name:      "missing declaration",
+			rootIndex: "# Store\n",
+			want:      "0.1",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			storeRoot := t.TempDir()
+			if err := os.CopyFS(storeRoot, os.DirFS(fixture)); err != nil {
+				t.Fatalf("copy fixture: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(storeRoot, "index.md"), []byte(test.rootIndex), 0o644); err != nil {
+				t.Fatalf("write root index: %v", err)
+			}
+
+			cfg, err := config.Load(storeRoot)
+			if err != nil {
+				t.Fatalf("load config: %v", err)
+			}
+			packages, err := pack.Load(filepath.Join(storeRoot, cfg.Packages))
+			if err != nil {
+				t.Fatalf("load packages: %v", err)
+			}
+			builtBundle, err := Build(Options{Root: storeRoot, Config: cfg, Packages: packages})
+			if err != nil {
+				t.Fatalf("build: %v", err)
+			}
+
+			if builtBundle.Meta.OKFVersion != test.want {
+				t.Fatalf("okf_version = %q, want %q", builtBundle.Meta.OKFVersion, test.want)
+			}
+		})
 	}
 }
 
