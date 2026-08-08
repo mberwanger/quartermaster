@@ -23,7 +23,7 @@ repository taking two teams' packages, scoping the knowledge it keeps on disk,
 and correctly refusing to promote a draft.
 
 `init` resolves the source, detects which agent tools the repository uses, writes
-`.quartermaster.yaml`, adds the generated paths to `.gitignore`, installs `post-checkout`
+`.qm.yaml`, adds the generated paths to `.gitignore`, installs `post-checkout`
 and `post-merge` hooks so the files stay current across branch switches, and runs the
 first sync.
 
@@ -84,7 +84,7 @@ How a rule loads depends on whether it declares a path scope:
 - **no scope** — loaded at the start of every session
 - **a scope** like `**/*.go` — loaded only when a matching file is open
 
-Everything else in the bundle is written to `.quartermaster/knowledge/` and enters the
+Everything else in the bundle is written to `.qm/knowledge/` and enters the
 agent's context only if it goes looking. Because always-loaded rules cost context in every
 session, `qm status` reports their total against the `budget.resident_bytes` you set.
 
@@ -201,7 +201,7 @@ plus a content digest — so nothing downstream depends on where it came from.
 | `git+https://` | Fetch a ref; `//subdir` and `#ref` are optional |
 | `https://` | Fetch a tarball |
 
-Remote sources are cached by digest under `~/.quartermaster/cache` (override with
+Remote sources are cached by digest under `~/.qm/cache` (override with
 `QM_CACHE_DIR`), so many repositories on the same bundle pull it once. `file://` is never
 cached: a local tree is what you edit, and every save has to be visible immediately.
 

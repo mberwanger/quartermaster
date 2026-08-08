@@ -57,8 +57,8 @@ func TestDiscoverySpanAbsentWhenNothingWasEdited(t *testing.T) {
 
 func TestStoreReadsAreFoundAndAttributed(t *testing.T) {
 	f := Digest(session(
-		tool("Read", "/repo/.quartermaster/knowledge/index.md", "", 1),
-		tool("Read", "/repo/.quartermaster/knowledge/voice/base.md", "", 2),
+		tool("Read", "/repo/.qm/knowledge/index.md", "", 1),
+		tool("Read", "/repo/.qm/knowledge/voice/base.md", "", 2),
 		tool("Edit", "/repo/main.go", "", 3),
 	), Repo{})
 
@@ -79,7 +79,7 @@ func TestStoreReadsAreFoundAndAttributed(t *testing.T) {
 
 func TestStoreReadDirectAndFollowedByExploration(t *testing.T) {
 	f := Digest(session(
-		tool("Read", "/repo/.quartermaster/knowledge/voice/base.md", "", 1),
+		tool("Read", "/repo/.qm/knowledge/voice/base.md", "", 1),
 		tool("Grep", "", "", 2),
 		tool("Read", "/repo/main.go", "", 3),
 		tool("Edit", "/repo/main.go", "", 4),

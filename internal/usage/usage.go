@@ -62,7 +62,7 @@ func Dir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".quartermaster", "usage"), nil
+	return filepath.Join(home, ".qm", "usage"), nil
 }
 
 // Append writes one event. Files are split by month so the log stays bounded and

@@ -9,7 +9,7 @@ import (
 
 func writeManifest(t *testing.T, dir, body string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, ".quartermaster.yaml"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".qm.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -40,7 +40,7 @@ func TestCompute(t *testing.T) {
 	wantOutputs := []string{
 		".claude/rules/qm/eng.errors.md",
 		".claude/rules/qm/eng.logging.md",
-		".quartermaster/knowledge/engineering/errors.md",
+		".qm/knowledge/engineering/errors.md",
 	}
 	for _, p := range wantOutputs {
 		if _, ok := r.Outputs[p]; !ok {
@@ -49,7 +49,7 @@ func TestCompute(t *testing.T) {
 	}
 
 	// The restricted doc never reaches the knowledge tree.
-	if _, ok := r.Outputs[".quartermaster/knowledge/engineering/secret.md"]; ok {
+	if _, ok := r.Outputs[".qm/knowledge/engineering/secret.md"]; ok {
 		t.Fatal("restricted doc leaked into outputs")
 	}
 

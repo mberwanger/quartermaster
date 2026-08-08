@@ -297,8 +297,8 @@ finished.
 
 What is missing is the convention around it.
 
-**A default location.** `.quartermaster/drafts/`, beside the materialized
-`.quartermaster/knowledge/`. Gitignored, through the block `qm init` already
+**A default location.** `.qm/drafts/`, beside the materialized
+`.qm/knowledge/`. Gitignored, through the block `qm init` already
 manages: drafts in the `git status` of a working repository are noise, because
 that repository is not the knowledge store and is not where they will be
 committed.

@@ -116,11 +116,11 @@ git -C "$REPO" remote add origin git@github.com:example/acceptance.git
 git -C "$REPO" commit -q --allow-empty -m "initial"
 
 succeeds "qm init" "$QM" init --dir "$REPO" --source "file://$STORE" --target claude --package "$PACKAGE"
-exists   "manifest written"            "$REPO/.quartermaster.yaml"
-contains "manifest names the package"  "$REPO/.quartermaster.yaml" "$PACKAGE"
-contains "telemetry opted in"          "$REPO/.quartermaster.yaml" "telemetry: true"
+exists   "manifest written"            "$REPO/.qm.yaml"
+contains "manifest names the package"  "$REPO/.qm.yaml" "$PACKAGE"
+contains "telemetry opted in"          "$REPO/.qm.yaml" "telemetry: true"
 exists   "gitignore written"           "$REPO/.gitignore"
-contains "gitignore covers qm state"   "$REPO/.gitignore" "/.quartermaster/"
+contains "gitignore covers qm state"   "$REPO/.gitignore" "/.qm/"
 exists   "post-checkout hook"          "$REPO/.git/hooks/post-checkout"
 exists   "post-merge hook"             "$REPO/.git/hooks/post-merge"
 exists   "session hook settings"       "$REPO/.claude/settings.json"
@@ -128,13 +128,13 @@ contains "session hook is guarded"     "$REPO/.claude/settings.json" "command -v
 
 section 'rules and knowledge materialize'
 exists "rules directory"    "$REPO/.claude/rules/qm"
-exists "knowledge tree"     "$REPO/.quartermaster/knowledge"
-exists "state file"         "$REPO/.quartermaster/state.json"
+exists "knowledge tree"     "$REPO/.qm/knowledge"
+exists "state file"         "$REPO/.qm/state.json"
 
 RULES="$(find "$REPO/.claude/rules/qm" -name '*.md' | wc -l | tr -d ' ')"
 if [ "$RULES" -gt 0 ]; then pass "at least one rule rendered ($RULES)"; else fail "at least one rule rendered"; fi
 
-DOCS="$(find "$REPO/.quartermaster/knowledge" -name '*.md' | wc -l | tr -d ' ')"
+DOCS="$(find "$REPO/.qm/knowledge" -name '*.md' | wc -l | tr -d ' ')"
 if [ "$DOCS" -gt 0 ]; then pass "knowledge documents on disk ($DOCS)"; else fail "knowledge documents on disk"; fi
 
 # A rule with no scope loads every session; a scoped one declares paths. Both
@@ -189,7 +189,7 @@ contains "status names the source"  "$TMP/status.txt" "file://"
 contains "status reports residency" "$TMP/status.txt" "resident"
 
 section 'a second target renders alongside the first'
-python3 - "$REPO/.quartermaster.yaml" <<'PY'
+python3 - "$REPO/.qm.yaml" <<'PY'
 import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 p.write_text(p.read_text().replace("targets:\n  - claude\n", "targets:\n  - claude\n  - cursor\n"))
@@ -200,7 +200,7 @@ exists   "claude rules still there"     "$REPO/.claude/rules/qm"
 
 section 'pruning removes what is no longer selected'
 BEFORE="$(find "$REPO/.claude/rules/qm" -name '*.md' | wc -l | tr -d ' ')"
-python3 - "$REPO/.quartermaster.yaml" <<'PY'
+python3 - "$REPO/.qm.yaml" <<'PY'
 import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
 p.write_text(re.sub(r"^\s*use:.*$", "    use: []", p.read_text(), flags=re.M))
@@ -212,17 +212,17 @@ if [ "$AFTER" -lt "$BEFORE" ]; then
 else
   fail "rules pruned when deselected (still $AFTER)"
 fi
-exists "knowledge survives losing a package" "$REPO/.quartermaster/knowledge"
+exists "knowledge survives losing a package" "$REPO/.qm/knowledge"
 
 section 'telemetry records only where it should'
-DOC="$(find "$REPO/.quartermaster/knowledge" -name '*.md' ! -name index.md | head -1)"
+DOC="$(find "$REPO/.qm/knowledge" -name '*.md' ! -name index.md | head -1)"
 succeeds "qm usage record on a knowledge document" "$QM" usage record "$DOC"
 if [ -n "$(find "$QM_USAGE_DIR" -name '*.jsonl' 2>/dev/null)" ]; then
   pass "usage log written"
 else
   fail "usage log written"
 fi
-succeeds "qm usage record ignores a non-knowledge path" "$QM" usage record "$REPO/.quartermaster.yaml"
+succeeds "qm usage record ignores a non-knowledge path" "$QM" usage record "$REPO/.qm.yaml"
 
 printf '{"session_id":"acceptance-1","cwd":"%s","hook_event_name":"SessionEnd"}' "$REPO" \
   | "$QM" trace record >/dev/null 2>&1

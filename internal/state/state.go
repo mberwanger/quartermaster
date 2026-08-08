@@ -16,7 +16,7 @@ import (
 )
 
 // Dir is the per-repository directory Quartermaster owns.
-const Dir = ".quartermaster"
+const Dir = ".qm"
 
 // fileName is the state file inside Dir.
 const fileName = "state.json"

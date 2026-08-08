@@ -77,7 +77,7 @@ func Dir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".quartermaster", "spool"), nil
+	return filepath.Join(home, ".qm", "spool"), nil
 }
 
 // Append writes one session record.

@@ -26,7 +26,7 @@ import (
 
 // KnowledgeDir is the materialized knowledge tree, relative to a repository.
 // It is the path a read has to fall under to count as a store read.
-const KnowledgeDir = ".quartermaster/knowledge"
+const KnowledgeDir = ".qm/knowledge"
 
 // Repo is what the repository can say about itself at digest time. It is passed
 // in rather than looked up, so digesting is a pure function of its inputs and a

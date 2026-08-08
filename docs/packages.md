@@ -58,7 +58,7 @@ data-engineering:
 ```
 
 ```yaml
-# .quartermaster.yaml
+# .qm.yaml
 bundles:
   - source: oci://ghcr.io/org/knowledge:latest
     use: [data-engineering]

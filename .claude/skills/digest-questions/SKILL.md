@@ -113,7 +113,7 @@ cluster, and a topic label cannot do that.
 
 | Value | Means |
 | --- | --- |
-| `store_read` | A knowledge document under `.quartermaster/knowledge/` answered it |
+| `store_read` | A knowledge document under `.qm/knowledge/` answered it |
 | `source_read` | Reading the codebase answered it |
 | `bash_exploration` | Running things answered it |
 | `external_docs` | A dependency's documentation, a web page, or an MCP lookup answered it |

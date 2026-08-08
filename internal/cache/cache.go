@@ -13,7 +13,7 @@ import (
 )
 
 // dirName is the per-machine cache root under the user's home directory.
-const dirName = ".quartermaster"
+const dirName = ".qm"
 
 // Root returns the cache root, creating nothing. QM_CACHE_DIR overrides it,
 // which is what tests and CI use to stay off a developer's real cache.

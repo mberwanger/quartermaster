@@ -205,7 +205,7 @@ func Dir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".quartermaster", "facets"), nil
+	return filepath.Join(home, ".qm", "facets"), nil
 }
 
 // Save writes one record, replacing any earlier record for the same session.

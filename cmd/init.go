@@ -243,7 +243,7 @@ func detectTargets(dir string) []string {
 // ignorePatterns gathers the gitignore entries for the selected targets, plus
 // the Quartermaster state and knowledge directory that every repository has.
 func ignorePatterns(targets []string) []string {
-	patterns := []string{"/.quartermaster/"}
+	patterns := []string{"/.qm/"}
 	for _, name := range targets {
 		t, ok := target.Get(name)
 		if !ok {

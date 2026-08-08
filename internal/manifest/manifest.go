@@ -17,9 +17,9 @@ import (
 )
 
 // FileName is the manifest a consumer commits at its repository root.
-const FileName = ".quartermaster.yaml"
+const FileName = ".qm.yaml"
 
-// Manifest is a parsed .quartermaster.yaml.
+// Manifest is a parsed .qm.yaml.
 type Manifest struct {
 	// Bundles are listed in precedence order. When two bundles produce a rule
 	// with the same id, the later entry wins. Precedence is declared rather than

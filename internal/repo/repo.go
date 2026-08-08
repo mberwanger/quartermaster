@@ -69,7 +69,7 @@ func EnsureGitignore(dir string, patterns []string) ([]string, error) {
 
 // hookMarker identifies a hook Quartermaster wrote, so a later init updates its
 // own hook but never clobbers one the user wrote.
-const hookMarker = "quartermaster-managed"
+const hookMarker = "qm-managed"
 
 // managedHooks are the git hooks that keep materialized knowledge current.
 var managedHooks = []string{"post-checkout", "post-merge"}

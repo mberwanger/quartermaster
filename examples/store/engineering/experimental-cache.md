@@ -14,7 +14,7 @@ tags: [go, performance]
 
 This document exists to show what a draft does in this model.
 
-It **is** distributed: it lands in `.quartermaster/knowledge/` like everything
+It **is** distributed: it lands in `.qm/knowledge/` like everything
 else, and an agent that goes looking will find it — with `status: draft` and
 `provenance: asserted` at the top, so the uncertainty travels with the claim.
 

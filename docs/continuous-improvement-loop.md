@@ -20,7 +20,7 @@ What the verification changed, in order of consequence:
 1. **Open question 1 is closed.** Skills and agents are already document types, and rules are already a selection over documents rather than a type. Section 6.4 was wrong about the enum and about the gap. This unblocks implementation.
 2. **The distiller agent does not exist.** Section 2.5 treated it as reusable. It is a name in a target-state diagram. Section 7's faster path to a corpus went with it.
 3. **Three worktree defects were live in shipped code**, not merely risks for the new code. They are fixed as of this revision. See section 4.11.
-4. **`~/.quartermaster/cache/` is already taken** by the bundle cache. The draft proposed the same path for analyzer memoization.
+4. **`~/.qm/cache/` is already taken** by the bundle cache. The draft proposed the same path for analyzer memoization.
 5. The bundle carries `rulesets.json` and `store.md`, which the draft omitted. `rulesets.json` is where rule-level telemetry has to join.
 
 **Superseded since this verification.** Everything below still describes the `d7158c3` state accurately, but the code has since moved past it in three ways this spec should not be read as contradicting: the `ruleset`/`rulesets.json`/`--ruleset` vocabulary throughout is now `package`/`packages.json`/`--package` (rulesets were folded into the broader package concept, which also selects skills and agents); the bundle artifact format is `0.4`, not the `0.3` cited in section 2.2, to carry that superset; and a freshly scaffolded store's root `index.md` now declares OKF `0.2` (`internal/index.CurrentOKFVersion`), not the `0.1` cited alongside it. None of this changes the spec's reasoning, only the nouns and version numbers it cites.
@@ -62,7 +62,7 @@ The counterweight is that dynamic context does compound where static context doe
 
 Quartermaster (`qm`) is a Go CLI plus a per-repo YAML manifest. It both compiles bundles and consumes them, which is why profiles were dropped from an earlier design. A producer can emit different bundles rather than a consumer selecting a profile at install time.
 
-`qm init` (`cmd/init.go`) resolves one or more sources, writes `.quartermaster.yaml`, adds gitignore entries, installs git hooks, and runs the first sync. `--source` is repeatable and ordered, and order is precedence: on an id collision the later source wins (`cmd/init.go:51`). So is `--ruleset`, whose requested order is deliberately preserved rather than sorted, because ruleset order is also precedence. Targets are detected from repository markers (`.claude`, `CLAUDE.md`, `.cursor`, `AGENTS.md`) and default to `claude`.
+`qm init` (`cmd/init.go`) resolves one or more sources, writes `.qm.yaml`, adds gitignore entries, installs git hooks, and runs the first sync. `--source` is repeatable and ordered, and order is precedence: on an id collision the later source wins (`cmd/init.go:51`). So is `--ruleset`, whose requested order is deliberately preserved rather than sorted, because ruleset order is also precedence. Targets are detected from repository markers (`.claude`, `CLAUDE.md`, `.cursor`, `AGENTS.md`) and default to `claude`.
 
 **Correction to the first draft.** `qm init` does not configure usage telemetry in any active sense. It writes `telemetry: true` into the manifest and stops. The hooks it installs are git hooks, `post-checkout` and `post-merge`, which re-sync materialized output that git does not track. **No harness hook is installed by any code path.** The `PostToolUse` wiring that feeds the usage log is a snippet the operator pastes into `.claude/settings.json` by hand, documented in `README.md`.
 
@@ -214,7 +214,7 @@ Both hooks need Quartermaster to write into a harness settings file, which it ha
 User scoped, not repository scoped, because the interesting signal is cross-repository even on one machine.
 
 ```
-~/.quartermaster/
+~/.qm/
   cache/<kind>/<digest>/     IN USE: resolved bundles, keyed by digest   (QM_CACHE_DIR)
   usage/<YYYY-MM>.jsonl      IN USE: per-read open events                (QM_USAGE_DIR)
   spool/pending.jsonl        new: append-only session pointers
@@ -378,7 +378,7 @@ One consequence to accept rather than fix: log lines written before this change 
 
 **Harness hooks.** Still undecided, and unlike git hooks they are not shared automatically: harness hooks live in project-local settings and are per-worktree unless configured at user level. Decide this deliberately rather than discovering it later, because a worktree that silently records nothing is worse than one that records twice. Whatever is decided, `qm status` should be able to say whether the current worktree is actually recording.
 
-**Materialization.** Writing full bundle content into every worktree duplicates storage and lets copies drift when worktrees are initialized at different times. The content-addressed cache at `~/.quartermaster/cache` already exists and already deduplicates the download across repositories; materialization copies out of it into each worktree. Copying rather than symlinking is correct, since an agent editing what it believes is a local file must not mutate every other worktree.
+**Materialization.** Writing full bundle content into every worktree duplicates storage and lets copies drift when worktrees are initialized at different times. The content-addressed cache at `~/.qm/cache` already exists and already deduplicates the download across repositories; materialization copies out of it into each worktree. Copying rather than symlinking is correct, since an agent editing what it believes is a local file must not mutate every other worktree.
 
 **Concurrency.** Worktrees exist largely so several agent sessions can run at once, which means simultaneous spool appends. Keep the SessionEnd record small enough to land in a single write and append with `O_APPEND` so concurrent writes do not interleave. The usage log already takes this approach and tolerates a torn line by skipping it rather than failing the file, which is the right precedent. Lock `qm digest` and keep it idempotent by session identifier, because concurrent runs will overlap eventually.
 
@@ -580,7 +580,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 1. ~~Verify every `[VERIFY]` claim against the actual code and schema. Correct this document.~~ **Done 2026-07-24.** See section 0.
 2. Resolve the remaining blocking open question, the schema reduction. Question 1 is closed.
 3. Facet record schema, version 1. Freeze the identifier contract.
-4. **`qm trace record` done 2026-07-24**, spooling to `~/.quartermaster/spool/pending.jsonl` with `QM_TRACE_DIR` to override. Identity comes from `repo.Identity`, the branch from the worktree's own git directory, and every installed bundle rather than the first. The SessionEnd hook is documented in the README for hand-wiring, exactly as the usage hook is; installing it automatically waits on open question 8.
+4. **`qm trace record` done 2026-07-24**, spooling to `~/.qm/spool/pending.jsonl` with `QM_TRACE_DIR` to override. Identity comes from `repo.Identity`, the branch from the worktree's own git directory, and every installed bundle rather than the first. The SessionEnd hook is documented in the README for hand-wiring, exactly as the usage hook is; installing it automatically waits on open question 8.
 5. **`qm digest` done 2026-07-24, structurally.** It derives a facet by counting, matching, and ordering what the transcript already records: the discovery span, which knowledge documents were opened, how each was arrived at, whether opening one ended the search, and what the session produced. No model is called, so a digest costs nothing and can be re-run over the whole corpus whenever the derivation improves. `questions[]` stays empty rather than guessed, and every record says in `source` how it was made.
 
    That is a deliberate narrowing of what section 4.4 describes, and the reason to record it: Quartermaster's stated commitment is that it makes no model calls and is reproducible from its inputs. A per-session model call breaks that, and open question 6 has not been decided. The seam is left clean, so the semantic pass adds `questions[]` and flips `source` without redoing any of this.
