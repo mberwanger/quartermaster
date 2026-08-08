@@ -74,7 +74,7 @@ func (v *publishCmd) run(out io.Writer) error {
 		ocispec.AnnotationDescription: fmt.Sprintf("%s knowledge bundle, %d docs", b.Meta.Name, b.Meta.Docs),
 	}
 	if names := packageNames(b); names != "" {
-		annotations[oci.AnnotationRulesets] = names
+		annotations[oci.AnnotationPackages] = names
 	}
 	for k, val := range annotations {
 		if val == "" {

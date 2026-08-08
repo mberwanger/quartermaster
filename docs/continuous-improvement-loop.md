@@ -23,6 +23,8 @@ What the verification changed, in order of consequence:
 4. **`~/.quartermaster/cache/` is already taken** by the bundle cache. The draft proposed the same path for analyzer memoization.
 5. The bundle carries `rulesets.json` and `store.md`, which the draft omitted. `rulesets.json` is where rule-level telemetry has to join.
 
+**Superseded since this verification.** Everything below still describes the `d7158c3` state accurately, but the code has since moved past it in three ways this spec should not be read as contradicting: the `ruleset`/`rulesets.json`/`--ruleset` vocabulary throughout is now `package`/`packages.json`/`--package` (rulesets were folded into the broader package concept, which also selects skills and agents); the bundle artifact format is `0.4`, not the `0.3` cited in section 2.2, to carry that superset; and a freshly scaffolded store's root `index.md` now declares OKF `0.2` (`internal/index.CurrentOKFVersion`), not the `0.1` cited alongside it. None of this changes the spec's reasoning, only the nouns and version numbers it cites.
+
 ---
 
 ## 1. Problem statement

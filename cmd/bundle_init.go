@@ -16,7 +16,7 @@ import (
 
 type bundleInitCmd struct {
 	cmd   *cobra.Command
-	dir   string
+	root  string
 	name  string
 	force bool
 }
@@ -43,7 +43,7 @@ schema, packages, root index, and template. Other files are left untouched.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&v.dir, "dir", ".", "Directory to scaffold the store in")
+	cmd.Flags().StringVar(&v.root, "root", ".", "Path to scaffold the store at")
 	cmd.Flags().StringVar(&v.name, "name", "", "Store name (defaults to the directory name)")
 	cmd.Flags().BoolVar(&v.force, "force", false, "Overwrite scaffold-owned files in an existing store")
 
@@ -54,7 +54,7 @@ schema, packages, root index, and template. Other files are left untouched.`,
 func (v *bundleInitCmd) run(out io.Writer) error {
 	name := v.name
 	if name == "" {
-		abs, err := filepath.Abs(v.dir)
+		abs, err := filepath.Abs(v.root)
 		if err != nil {
 			return err
 		}
@@ -64,27 +64,33 @@ func (v *bundleInitCmd) run(out io.Writer) error {
 		return fmt.Errorf("invalid store name: %w", err)
 	}
 
-	if scaffold.Exists(v.dir) && !v.force {
-		return fmt.Errorf("%s already exists here; re-run with --force to scaffold over it", scaffold.ConfigFile)
+	if existing, found := scaffold.ExistingOwnedFile(v.root); found && !v.force {
+		return fmt.Errorf("%s already exists here; re-run with --force to scaffold over it", existing)
 	}
 
-	written, err := scaffold.Write(v.dir, name)
+	written, err := scaffold.Write(v.root, name)
 	if err != nil {
 		return err
 	}
 
-	cfg, err := config.Load(v.dir)
+	cfg, err := config.Load(v.root)
 	if err != nil {
 		return err
 	}
 
-	// Generate the listings so the store is index-current from the first commit.
-	if _, err := index.Sync(v.dir, cfg, true); err != nil {
+	// A fresh scaffold carries no distributed document, so this has nothing to
+	// list yet and is a no-op. It matters when --force re-scaffolds a store
+	// that already has content: the listings come back current rather than
+	// stale from before the overwrite.
+	if _, err := index.Sync(v.root, cfg, true); err != nil {
 		return err
 	}
-	preflightResult, err := preflight.Run(preflight.Options{Root: v.dir})
+	// A bare return renders a preflight failure the same way validate and build
+	// already do, rather than adding an extra prefix on top of the same
+	// findings block.
+	preflightResult, err := preflight.Run(preflight.Options{Root: v.root})
 	if err != nil {
-		return fmt.Errorf("scaffold preflight failed: %w", err)
+		return err
 	}
 
 	var b strings.Builder

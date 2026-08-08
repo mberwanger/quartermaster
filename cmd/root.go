@@ -61,6 +61,13 @@ model call is made at any point.`,
 
 			return nil
 		},
+		// A RunE makes the command Runnable, which is what makes cobra validate
+		// Args at all: an unset Run/RunE short-circuits straight to printing help
+		// with a nil error, so "qm nosuch" would exit 0 instead of rejecting the
+		// unknown command the way "qm bundle nosuch" already correctly does.
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		},
 	}
 	cmd.SetVersionTemplate("{{.Version}}")
 

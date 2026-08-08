@@ -33,9 +33,14 @@ const Marker = "GENERATED"
 // Name is the reserved filename for a directory listing.
 const Name = doc.IndexName
 
+// CurrentOKFVersion is the Open Knowledge Format version a new store declares.
+// It is the single source this package and internal/scaffold both read, so a
+// version bump cannot update one and miss the other.
+const CurrentOKFVersion = "0.2"
+
 // rootFrontmatter declares the format version. The store root index is the only
 // index file where frontmatter is permitted.
-const rootFrontmatter = "---\nokf_version: \"0.2\"\n---\n"
+const rootFrontmatter = "---\nokf_version: \"" + CurrentOKFVersion + "\"\n---\n"
 
 // File is one index.md and the content its generated region should hold.
 type File struct {
