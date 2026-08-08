@@ -29,11 +29,11 @@ func newSyncCmd() *syncCmd {
 		Use:   "sync",
 		Short: "Resolve, materialize, and prune",
 		Long: `Resolve the bundles a repository declares, materialize the selected
-rulesets into each target harness, and prune any file a previous sync produced
+packages into each target harness, and prune any file a previous sync produced
 that this one does not.
 
 The retrievable knowledge tree is written whole under .quartermaster/knowledge.
-Each ruleset selection becomes rule files under the harness path, resident when
+Each package's rule selections become files under the harness path, resident when
 unscoped and path-scoped otherwise. Generated output is gitignored and
 reproducible from the manifest, so it is safe to delete and regenerate.`,
 		Args:              cobra.NoArgs,

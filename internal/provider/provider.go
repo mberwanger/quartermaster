@@ -17,7 +17,7 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/config"
-	"github.com/mberwanger/quartermaster/internal/pack"
+	"github.com/mberwanger/quartermaster/internal/preflight"
 )
 
 // Auth carries credentials for a remote source. Its zero value means none, and
@@ -125,20 +125,11 @@ func singleSubdir(dir string) (string, bool) {
 
 // build compiles a source tree in memory, the same code path qm bundle build runs.
 func build(root string) (*bundle.Bundle, error) {
-	cfg, err := config.Load(root)
+	result, err := preflight.Run(preflight.Options{Root: root})
 	if err != nil {
 		return nil, err
 	}
-
-	var packages pack.File
-	if cfg.Packages != "" {
-		packages, err = pack.Load(filepath.Join(root, cfg.Packages))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return bundle.Build(bundle.Options{Root: root, Config: cfg, Packages: packages})
+	return result.Bundle, nil
 }
 
 func exists(path string) bool {

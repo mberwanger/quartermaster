@@ -26,7 +26,7 @@ func newExplainCmd() *explainCmd {
 		Use:   "explain <id>",
 		Short: "Show why a document was or was not materialized",
 		Long: `Explain a document's fate: whether it is a document at all under the
-include and exclude patterns, whether it passes the gate, and which rulesets
+include and exclude patterns, whether it passes the gate, and which packages
 reference it.
 
 Selection is a filter over frontmatter, so when a document does not appear where
@@ -95,12 +95,12 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 
 	referencing := packagesReferencing(packages, id)
 	if len(referencing) == 0 {
-		fmt.Fprintf(&b, "  rulesets    none reference it\n")
+		fmt.Fprintf(&b, "  packages    none reference it\n")
 	} else {
-		fmt.Fprintf(&b, "  rulesets    %s\n", strings.Join(referencing, ", "))
+		fmt.Fprintf(&b, "  packages    %s\n", strings.Join(referencing, ", "))
 	}
 
-	// The bottom line: a document becomes a rule only when a ruleset references
+	// The bottom line: a document becomes a rule only when a package references
 	// it and it passes the gate.
 	switch {
 	case len(referencing) > 0 && allowed:
@@ -108,7 +108,7 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 	case len(referencing) > 0 && !allowed:
 		fmt.Fprintf(&b, "  → referenced but does not meet the requirements, so the build fails until fixed\n")
 	case isDoc && !restricted:
-		fmt.Fprintf(&b, "  → on disk only; no ruleset turns it into a rule\n")
+		fmt.Fprintf(&b, "  → on disk only; no package turns it into a rule\n")
 	default:
 		fmt.Fprintf(&b, "  → not materialized\n")
 	}

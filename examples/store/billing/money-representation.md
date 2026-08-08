@@ -13,7 +13,7 @@ tags: [money, correctness]
 # Representing money
 
 No scope, so this loads in every session of a repository that takes the
-`billing` ruleset — and in no session of a repository that does not.
+`billing` package — and in no session of a repository that does not.
 
 ## Integer minor units, always
 

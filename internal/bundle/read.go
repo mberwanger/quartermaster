@@ -40,12 +40,6 @@ func Read(dir string) (*Bundle, error) {
 		return nil, err
 	}
 
-	storeMD, err := fs.ReadFile(fsys, StoreMDName)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	b.StoreMD = string(storeMD)
-
 	b.Files, err = readTree(fsys, StoreDir)
 	if err != nil {
 		return nil, err

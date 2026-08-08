@@ -6,11 +6,9 @@
 // by construction rather than by intention, so no derived file can quietly
 // become the thing people edit.
 //
-// Two consumers are served without choosing between them. An agent with file
-// tools mounts store/ and greps it, which is how a coding agent actually works.
-// An agent that stuffs a prompt takes store.md, which is stable per digest and
-// so caches as a fixed prefix. catalog.json is the frontmatter of every doc, for
-// orientation and tooling.
+// The consumer this is built for is an agent with file tools: it mounts
+// store/ and greps it, which is how a coding agent actually works.
+// catalog.json is the frontmatter of every doc, for orientation and tooling.
 //
 // A bundle additionally carries rulesets: named selections of documents,
 // compiled at build time against the store's gate. A ruleset holds no prose,
@@ -56,6 +54,8 @@ type Meta struct {
 	Files      int    `json:"files"`
 	Packages   int    `json:"packages"`
 	Controls   int    `json:"controls"`
+	// StoreBytes is the total size of the store/ tree carried into the
+	// artifact, summed directly from the carried files.
 	StoreBytes int    `json:"store_bytes"`
 	Digest     string `json:"digest"`
 }
@@ -87,7 +87,6 @@ type Bundle struct {
 	Meta     Meta
 	Catalog  []Entry
 	Packages []pack.Compiled
-	StoreMD  string
 	Files    []File
 	// Controls are fixtures for the review and audit jobs, partitioned out of
 	// everything an agent grounds on.
@@ -117,10 +116,9 @@ var outputSkip = []string{"dist"}
 // already known to be well-formed.
 //
 // Restricted documents never enter the artifact — not the catalog, not the
-// concatenated corpus, not the tree. Materialized knowledge lands in working
-// trees across every consuming repository, a wider blast radius than retrieval
-// from a single store, so the visibility check is enforced here unconditionally
-// and not left to the gate.
+// tree. Materialized knowledge lands in working trees across every consuming
+// repository, a wider blast radius than retrieval from a single store, so the
+// visibility check is enforced here unconditionally and not left to the gate.
 func Build(opts Options) (*Bundle, error) {
 	okfVersion, err := loadOKFVersion(opts.Root)
 	if err != nil {
@@ -202,11 +200,6 @@ func Build(opts Options) (*Bundle, error) {
 		Packages: compiled,
 	}
 
-	var store strings.Builder
-	store.WriteString("# Knowledge store\n\n")
-	store.WriteString("Every document in the store, concatenated in path order. ")
-	store.WriteString("Each block is preceded by its path, which carries information the prose does not.\n")
-
 	for _, d := range docs {
 		if d.Restricted() {
 			continue
@@ -216,7 +209,7 @@ func Build(opts Options) (*Bundle, error) {
 		}
 
 		// A control fixture is still linked and still validated, it just never
-		// reaches the catalog or the concatenated corpus.
+		// reaches the catalog.
 		if opts.Config.IsControl(d.Path) {
 			continue
 		}
@@ -226,12 +219,7 @@ func Build(opts Options) (*Bundle, error) {
 			Path:        d.Path,
 			Frontmatter: d.Frontmatter,
 		})
-
-		fmt.Fprintf(&store, "\n\n---\n\n## %s\n\n", d.Path)
-		store.Write(trimTitle(d.Prose))
 	}
-
-	b.StoreMD = store.String()
 
 	// The verbatim tree carries the same set: document and control files, minus
 	// restricted ones.
@@ -270,7 +258,7 @@ func Build(opts Options) (*Bundle, error) {
 	b.Meta.Files = len(b.Files)
 	b.Meta.Packages = len(b.Packages)
 	b.Meta.Controls = len(b.Controls)
-	b.Meta.StoreBytes = len(b.StoreMD)
+	b.Meta.StoreBytes = storeBytes(b.Files)
 
 	digest, err := b.digest()
 	if err != nil {
@@ -350,20 +338,6 @@ func checkAgentPermissions(docs []doc.Doc) error {
 			return fmt.Errorf("%s declares permission-mode %s, which a bundle may not distribute; write such an agent locally instead",
 				d.Path, bypassPermissions)
 		}
-	}
-	return nil
-}
-
-// trimTitle drops a doc's leading h1 and the blank line after it. The path
-// heading above it already names the doc, and two titles in a row reads as an
-// error to anything summarising the file.
-func trimTitle(prose []byte) []byte {
-	s := strings.TrimLeft(string(prose), "\n")
-	if !strings.HasPrefix(s, "# ") {
-		return []byte(s)
-	}
-	if _, rest, ok := strings.Cut(s, "\n"); ok {
-		return []byte(strings.TrimLeft(rest, "\n"))
 	}
 	return nil
 }
@@ -461,11 +435,19 @@ func tree(root string, cfg *config.Config) ([]File, error) {
 	return files, nil
 }
 
+// storeBytes sums the size of every file carried into the store/ tree.
+func storeBytes(files []File) int {
+	total := 0
+	for _, f := range files {
+		total += len(f.Body)
+	}
+	return total
+}
+
 // digest is the artifact's content address, computed over the catalog, the
-// compiled rulesets, the concatenated store, and every carried file. It excludes
-// the source commit, so two builds of identical content agree even from
-// different commits, which is what makes the digest usable as a cache key and as
-// an eval pin.
+// compiled packages, and every carried file. It excludes the source commit, so
+// two builds of identical content agree even from different commits, which is
+// what makes the digest usable as a cache key and as an eval pin.
 func (b *Bundle) digest() (string, error) {
 	h := sha256.New()
 
@@ -473,9 +455,6 @@ func (b *Bundle) digest() (string, error) {
 		return "", err
 	}
 	if err := json.NewEncoder(h).Encode(b.Packages); err != nil {
-		return "", err
-	}
-	if _, err := h.Write([]byte(b.StoreMD)); err != nil {
 		return "", err
 	}
 	for _, set := range [][]File{b.Files, b.Controls} {

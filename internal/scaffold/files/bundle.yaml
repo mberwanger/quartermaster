@@ -1,4 +1,4 @@
-name: {{NAME}}
+name: {{NAME_JSON}}
 schema: meta/frontmatter.schema.json
 packages: meta/packages.yaml
 
@@ -7,7 +7,7 @@ packages: meta/packages.yaml
 include: ["**/*.md"]
 exclude: ["meta/templates/**"]
 
-# What a document must be before a ruleset may turn it into a rule. A draft is
+# What a document must be before a package may turn it into a rule. A draft is
 # still distributed and still readable; it just never loads on its own.
 requires:
   status: [active]

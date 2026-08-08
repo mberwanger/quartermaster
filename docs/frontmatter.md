@@ -30,20 +30,20 @@ validates and builds.
 |---|---|---|
 | `bundle.yaml` | No. Without it every `**/*.md` is a document, nothing is excluded, and there is no gate | n/a |
 | the schema named by `schema:` | No, unless the key is present | **Error**, and the build stops |
-| the rulesets file named by `rulesets:` | No, unless the key is present | **Error**, and the build stops |
+| the packages file named by `packages:` | No, unless the key is present | **Error**, and the build stops |
 | `index.md` | No | n/a |
 | knowledge, skills, agents | No. A store with none of them builds a valid bundle | n/a |
 
 Omitting a key means "there is none of this." Naming a file that is not there
 means the path is wrong, and both now fail rather than one of them quietly
-producing a bundle with no rulesets in it.
+producing a bundle with no packages in it.
 
 ## What Quartermaster reads
 
 | Field | Read by | Missing means |
 |---|---|---|
-| `id` | rulesets, the catalog, the usage log, facet records | **Validation error.** Everything downstream joins on it |
-| `scope` | `internal/ruleset/ruleset.go:138` | The rule is **resident**, loading every session, rather than scoped. Silent |
+| `id` | packages, the catalog, the usage log, facet records | **Validation error.** Everything downstream joins on it |
+| `scope` | the package compiler | The rule is **resident**, loading every session, rather than scoped. Silent |
 | `visibility` | `internal/bundle/bundle.go:298`, compared against `restricted` | Nothing can be withheld from the bundle. Silent |
 | `skill` block | `internal/plan/skill.go:54` | `name` falls back to the last segment of the id; `allowed-tools` is simply absent |
 | `agent` block | `internal/plan/agent.go:25` | The agent renders with no tools, model, or permission mode |
@@ -67,7 +67,7 @@ CI checks and your schema is what changed.
 Everything else, and more of the tool than the table suggests.
 
 **Which fields decide eligibility.** `requires:` in `bundle.yaml` names the
-fields a document must satisfy before a ruleset may turn it into a rule. The
+fields a document must satisfy before a package may turn it into a rule. The
 fields are yours: Admiral's store gates on `status`, `provenance`, and
 `visibility`, but nothing in the tool knows those names. An omitted or empty
 `requires:` means everything qualifies.
@@ -87,7 +87,7 @@ Worth separating, because they are easy to conflate:
 |---|---|---|
 | `include` / `exclude` | **path globs** | the store |
 | `requires:` | **frontmatter fields** | the store picks which |
-| rulesets | **document ids** | the store |
+| packages | **document ids and predicates** | the store |
 
 So what ships is a path question, what may become a rule is a frontmatter
 question, and what actually becomes one is a naming question.

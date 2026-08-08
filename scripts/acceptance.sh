@@ -87,6 +87,7 @@ if ! (cd "$ROOT" && go build -o "$QM" .); then
   exit 2
 fi
 pass "qm builds"
+succeeds "qm bundle index accepts current listings" "$QM" bundle index --root "$STORE" --check
 succeeds "qm bundle validate accepts the store" "$QM" bundle validate --root "$STORE"
 
 # What the store offers decides what can be asserted, so read it rather than
