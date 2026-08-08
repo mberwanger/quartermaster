@@ -26,10 +26,9 @@ func newBundleInitCmd() *bundleInitCmd {
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Scaffold a new knowledge store",
-		Long: `Write the files a knowledge store needs: the bundle declaration, a
-frontmatter schema, an empty packages file, a root index, and a template to copy
-from.
+		Short: "Scaffold a new store",
+		Long: `Write the files a store needs: the bundle declaration, a frontmatter
+schema, an empty packages file, a root index, and a template to copy from.
 
 The result validates and builds as it stands, so there is a working store to add
 documents to rather than a pile of files to repair first.

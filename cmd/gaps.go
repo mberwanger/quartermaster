@@ -33,7 +33,7 @@ func newGapsCmd() *gapsCmd {
 
 	cmd := &cobra.Command{
 		Use:   "gaps",
-		Short: "Rank what the knowledge store should probably say",
+		Short: "Rank what the store should probably say",
 		Long: `Cluster the questions sessions kept having to answer, and rank what is worth
 writing down.
 

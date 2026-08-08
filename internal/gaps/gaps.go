@@ -1,5 +1,5 @@
 // Package gaps turns a corpus of facet records into a ranked shortlist of
-// things the knowledge store should probably say.
+// things the store should probably say.
 //
 // Two rules shape everything here, and both come from the same place: a store
 // that grows by frequency alone becomes a stale mirror of the code.

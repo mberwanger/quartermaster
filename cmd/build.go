@@ -65,7 +65,7 @@ build.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the knowledge store")
+	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the store")
 	cmd.Flags().StringVar(&v.out, "out", "dist", "Directory to write the bundle into")
 	cmd.Flags().StringVar(&v.repo, "repo", "", "Repository name recorded in the bundle")
 	cmd.Flags().StringVar(&v.commit, "commit", "", "Source commit recorded in the bundle")

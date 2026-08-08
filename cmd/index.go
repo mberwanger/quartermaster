@@ -42,7 +42,7 @@ request gate wants.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the knowledge store")
+	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the store")
 	cmd.Flags().BoolVar(&v.check, "check", false, "Fail when a listing is out of date, writing nothing")
 
 	v.cmd = cmd

@@ -2,7 +2,7 @@
 okf_version: "0.2"
 ---
 
-# Example knowledge store
+# Example store
 
 A small store that exercises every part of the model. See
 [the walkthrough](../README.md) for what to run against it.

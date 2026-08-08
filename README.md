@@ -38,7 +38,7 @@ repository that consumes it.
 
 | Command | Purpose |
 | --- | --- |
-| `qm bundle init` | Scaffold a new knowledge store |
+| `qm bundle init` | Scaffold a new store |
 | `qm bundle index` | Regenerate directory listings, or check them in CI |
 | `qm bundle validate` | Run all compilation checks without emitting anything |
 | `qm bundle build` | Compile a source tree into a bundle |
@@ -53,7 +53,7 @@ repository that consumes it.
 
 ## How it works
 
-A **bundle** is a snapshot of a knowledge store — markdown with frontmatter — addressed by
+A **bundle** is a snapshot of a store — markdown with frontmatter — addressed by
 a content digest, so a given digest always means the same bytes.
 
 A **package** is a named selection — shaped by team or topic, like `engineering` or

@@ -4,7 +4,7 @@ type: feature-spec
 status: draft
 owner: martin
 verified_against_code: 2026-07-24
-description: Session telemetry capture, local analysis, and evidence-backed proposals that populate and prune the knowledge store, closing the loop between agent sessions and bundle contents.
+description: Session telemetry capture, local analysis, and evidence-backed proposals that populate and prune the store, closing the loop between agent sessions and bundle contents.
 ---
 
 # Quartermaster Continuous Improvement Loop
@@ -68,7 +68,7 @@ Quartermaster (`qm`) is a Go CLI plus a per-repo YAML manifest. It both compiles
 
 That matters for section 4.2, which needs a `SessionEnd` hook. There is no existing harness-hook installer to extend. It is new work, and it is the first time Quartermaster will write into a harness settings file.
 
-### 2.2 The knowledge store
+### 2.2 The store
 
 `admiral-knowledge` is a plain markdown repository following the Open Knowledge Format (OKF), Google Cloud's vendor-neutral spec for representing knowledge as a directory of markdown files with YAML frontmatter. In OKF, a concept is one file, its identity is its path with the `.md` suffix removed, `index.md` files are optional and carry no frontmatter, and concepts cross-link with ordinary markdown links.
 
@@ -117,7 +117,7 @@ Knowledge lives on disk and is not loaded into context, so it carries no residen
 
 The on-disk store still has a cost, but a different one. It is read amplification and misretrieval. An agent that reads eleven documents before finding the useful one paid real tokens and real wall-clock time. An agent that reads a plausible but wrong document paid worse, because it stopped looking and proceeded confidently. The lever is index quality and description discriminability, not payload size. Two documents whose descriptions do not clearly separate will cost reads forever.
 
-**Critical dependency.** Nothing auto-loads `index.md`. The OKF spec describes it as a navigation aid for progressive disclosure, and no harness treats a file by that name as special. The only things entering a session unbidden are the rules file, nested rules files where the harness supports them, and skill frontmatter. Therefore the rules file must name the store root and state when consulting it is expected. Without those few lines the entire knowledge store is invisible and telemetry will report zero reads, which reads as a quality problem when it is actually a wiring problem.
+**Critical dependency.** Nothing auto-loads `index.md`. The OKF spec describes it as a navigation aid for progressive disclosure, and no harness treats a file by that name as special. The only things entering a session unbidden are the rules file, nested rules files where the harness supports them, and skill frontmatter. Therefore the rules file must name the store root and state when consulting it is expected. Without those few lines the entire store is invisible and telemetry will report zero reads, which reads as a quality problem when it is actually a wiring problem.
 
 The `agents-md` target already renders a pointer block naming the bundle digest, the rulesets, and the rule listing. Confirm before the baseline window opens that whichever target a measured repository uses names the knowledge root too. A two-week baseline measured through a store nothing pointed at measures nothing.
 
@@ -349,7 +349,7 @@ This requires one schema addition to `meta.json`, an optional contribute target.
 
 ### 4.9 Local overlay tier
 
-A personal knowledge store alongside the pulled bundle, realized as an additional source. `qm init --source` is repeatable and ordered, so this needs no new mechanism, and a `file://` source can point at a source tree that `qm sync` builds on the fly, which is exactly the authoring inner loop a staging tier wants.
+A personal store alongside the pulled bundle, realized as an additional source. `qm init --source` is repeatable and ordered, so this needs no new mechanism, and a `file://` source can point at a source tree that `qm sync` builds on the fly, which is exactly the authoring inner loop a staging tier wants.
 
 The purpose is a staging tier where a document proves itself before anyone else is asked to review it. The risk, correctly identified, is that an uncurated local store grows idiosyncratic to one developer and turns promotion into a single large low-quality proposal.
 
@@ -509,7 +509,7 @@ Write the audit result as a decision record, not only as a schema change. The fi
 
 ## 7. Unattended agents
 
-The knowledge store is intended to serve unattended agents, not only operator sessions, so they can ground automated tasks. That makes the store a production dependency rather than a convenience.
+The store is intended to serve unattended agents, not only operator sessions, so they can ground automated tasks. That makes the store a production dependency rather than a convenience.
 
 **Correctness bar rises.** A wrong document in an operator session costs a correction that is noticed immediately. The same document in an unattended run costs a merged PR or a bad triage, and nobody notices until later.
 

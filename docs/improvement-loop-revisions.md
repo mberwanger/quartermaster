@@ -300,7 +300,7 @@ What is missing is the convention around it.
 **A default location.** `.qm/drafts/`, beside the materialized
 `.qm/knowledge/`. Gitignored, through the block `qm init` already
 manages: drafts in the `git status` of a working repository are noise, because
-that repository is not the knowledge store and is not where they will be
+that repository is not the store and is not where they will be
 committed.
 
 **The two exits, neither of which is built.** Both are already designed in the
@@ -309,7 +309,7 @@ than a formality:
 
 | Destination | Meaning | Spec |
 |---|---|---|
-| The shared knowledge store | Everyone consuming the bundle gets it | 4.8, `qm propose` |
+| The shared store | Everyone consuming the bundle gets it | 4.8, `qm propose` |
 | The operator's own repository | Local overlay, no distribution | 4.9 |
 
 The staging folder is the missing middle between them. Without it, the end of

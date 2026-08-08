@@ -39,7 +39,7 @@ that command.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the knowledge store")
+	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the store")
 
 	v.cmd = cmd
 	return v
