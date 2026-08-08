@@ -113,7 +113,7 @@ cluster, and a topic label cannot do that.
 
 | Value | Means |
 | --- | --- |
-| `store_read` | A knowledge document under `.qm/knowledge/` answered it |
+| `knowledge_read` | A knowledge document under `.qm/knowledge/` answered it |
 | `source_read` | Reading the codebase answered it |
 | `bash_exploration` | Running things answered it |
 | `external_docs` | A dependency's documentation, a web page, or an MCP lookup answered it |
@@ -121,7 +121,7 @@ cluster, and a topic label cannot do that.
 | `asked_human` | The agent gave up and asked |
 | `unresolved` | It was never answered |
 
-The last four are the interesting ones. `store_read` says the store worked.
+The last four are the interesting ones. `knowledge_read` says the store worked.
 `source_read` and `bash_exploration` say the answer was in the repository, so a
 document about it would mostly be a stale copy. The other four say the answer
 was somewhere this repository could not reach, which is what a content gap looks
@@ -130,7 +130,7 @@ like from the inside.
 `tool_calls` is roughly how many calls went into that question. An estimate is
 fine; it is used for ranking, not arithmetic.
 
-`store_docs_read` lists document ids, only when a knowledge document was
+`knowledge_docs_read` lists document ids, only when a knowledge document was
 actually opened for that question.
 
 ## 4. Attach it

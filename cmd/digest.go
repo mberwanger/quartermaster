@@ -154,7 +154,7 @@ Either a bare array or an object with a "questions" key is accepted:
   {"questions": [
     {"question": "why does the envelope keep the raw payload",
      "resolution": "source_read", "resolved": true, "tool_calls": 14,
-     "store_docs_read": ["engineering.eventing-conventions"]}
+     "knowledge_docs_read": ["engineering.eventing-conventions"]}
   ]}
 
 Resolution is one of ` + strings.Join(facet.Resolutions, ", ") + `.
@@ -508,7 +508,7 @@ func summarize(b *strings.Builder) error {
 		if f.DiscoverySpan != nil {
 			spans = append(spans, *f.DiscoverySpan)
 		}
-		reads += len(f.StoreReads)
+		reads += len(f.KnowledgeReads)
 		if len(f.Bundles) > 0 {
 			withBundles++
 		}
@@ -525,7 +525,7 @@ func summarize(b *strings.Builder) error {
 		fmt.Fprintf(b, "  discovery span   median %d tool calls before the first edit (%d session(s) measured)\n",
 			spans[len(spans)/2], len(spans))
 	}
-	fmt.Fprintf(b, "  store reads      %d\n", reads)
+	fmt.Fprintf(b, "  knowledge reads  %d\n", reads)
 
 	// What a record still lacks is the actionable part, so it goes above the
 	// caveats rather than below them.

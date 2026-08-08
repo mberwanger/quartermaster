@@ -55,17 +55,17 @@ func TestDiscoverySpanAbsentWhenNothingWasEdited(t *testing.T) {
 	}
 }
 
-func TestStoreReadsAreFoundAndAttributed(t *testing.T) {
+func TestKnowledgeReadsAreFoundAndAttributed(t *testing.T) {
 	f := Digest(session(
 		tool("Read", "/repo/.qm/knowledge/index.md", "", 1),
 		tool("Read", "/repo/.qm/knowledge/voice/base.md", "", 2),
 		tool("Edit", "/repo/main.go", "", 3),
 	), Repo{})
 
-	if len(f.StoreReads) != 1 {
-		t.Fatalf("got %d store reads, want 1 (the index is navigation, not an answer)", len(f.StoreReads))
+	if len(f.KnowledgeReads) != 1 {
+		t.Fatalf("got %d knowledge reads, want 1 (the index is navigation, not an answer)", len(f.KnowledgeReads))
 	}
-	r := f.StoreReads[0]
+	r := f.KnowledgeReads[0]
 	if r.Path != "voice/base.md" {
 		t.Errorf("path = %q, want it relative to the knowledge tree", r.Path)
 	}
@@ -77,7 +77,7 @@ func TestStoreReadsAreFoundAndAttributed(t *testing.T) {
 	}
 }
 
-func TestStoreReadDirectAndFollowedByExploration(t *testing.T) {
+func TestKnowledgeReadDirectAndFollowedByExploration(t *testing.T) {
 	f := Digest(session(
 		tool("Read", "/repo/.qm/knowledge/voice/base.md", "", 1),
 		tool("Grep", "", "", 2),
@@ -85,27 +85,27 @@ func TestStoreReadDirectAndFollowedByExploration(t *testing.T) {
 		tool("Edit", "/repo/main.go", "", 4),
 	), Repo{})
 
-	if len(f.StoreReads) != 1 {
-		t.Fatalf("got %d store reads, want 1", len(f.StoreReads))
+	if len(f.KnowledgeReads) != 1 {
+		t.Fatalf("got %d knowledge reads, want 1", len(f.KnowledgeReads))
 	}
-	if f.StoreReads[0].ArrivedVia != facet.ArrivedViaDirect {
+	if f.KnowledgeReads[0].ArrivedVia != facet.ArrivedViaDirect {
 		t.Error("no index was read first, so it was reached directly")
 	}
 	// The failed-document signal: consulted, and the search carried on.
-	if !f.StoreReads[0].FollowedByExploration {
+	if !f.KnowledgeReads[0].FollowedByExploration {
 		t.Error("exploration continued after the read and was not recorded")
 	}
 }
 
-// A read outside a knowledge tree is ordinary work, not a store read.
-func TestReadsOutsideTheKnowledgeTreeAreNotStoreReads(t *testing.T) {
+// A read outside a knowledge tree is ordinary work, not a knowledge read.
+func TestReadsOutsideTheKnowledgeTreeAreNotCounted(t *testing.T) {
 	f := Digest(session(
 		tool("Read", "/repo/internal/doc/doc.go", "", 1),
 		tool("Read", "/repo/docs/knowledge.md", "", 2),
 	), Repo{})
 
-	if len(f.StoreReads) != 0 {
-		t.Errorf("got %d store reads, want none: %+v", len(f.StoreReads), f.StoreReads)
+	if len(f.KnowledgeReads) != 0 {
+		t.Errorf("got %d knowledge reads, want none: %+v", len(f.KnowledgeReads), f.KnowledgeReads)
 	}
 }
 

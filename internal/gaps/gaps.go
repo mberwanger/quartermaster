@@ -38,7 +38,7 @@ import (
 // One that sent somebody outside the repository, or that nobody could answer,
 // argues strongly: that answer is not coming back on its own.
 var recoverability = map[string]float64{
-	facet.ResolutionStoreRead:       0.0,
+	facet.ResolutionKnowledgeRead:   0.0,
 	facet.ResolutionSourceRead:      0.2,
 	facet.ResolutionBashExploration: 0.3,
 	facet.ResolutionExternalDocs:    0.7,

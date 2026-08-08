@@ -271,11 +271,11 @@ Keep the schema closed-form. A vague extraction prompt yields mush.
       "resolved": true,
       "tool_calls": 14,
       "elapsed_seconds": 190,
-      "store_docs_read": ["engineering/eventing-conventions"],
+      "knowledge_docs_read": ["engineering/eventing-conventions"],
       "arrived_via": "index"
     }
   ],
-  "store_reads": [
+  "knowledge_reads": [
     { "doc_id": "...", "arrived_via": "index|direct", "followed_by_further_exploration": true }
   ],
   "resident_rules": ["voice.base"],
@@ -284,7 +284,7 @@ Keep the schema closed-form. A vague extraction prompt yields mush.
 }
 ```
 
-Resolution values are `store_read`, `source_read`, `bash_exploration`, `asked_human`, and `unresolved`.
+Resolution values are `knowledge_read`, `source_read`, `bash_exploration`, `asked_human`, and `unresolved`.
 
 Three changes from the first draft, all forced by verification.
 

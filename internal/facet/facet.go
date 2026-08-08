@@ -21,8 +21,10 @@ import (
 	"time"
 )
 
-// Version is the record's schema version.
-const Version = 1
+// Version is the record's schema version. 2 renamed the store_reads,
+// store_docs_read, and store_read spellings to knowledge_*, so a version 1
+// record decodes with those fields empty rather than wrong.
+const Version = 2
 
 // Facet is one digested session.
 type Facet struct {
@@ -49,8 +51,8 @@ type Facet struct {
 	// never edited anything has none rather than a large one, since it was not
 	// necessarily flailing, it may not have been that kind of session.
 	DiscoverySpan *int `json:"discovery_span,omitempty"`
-	// StoreReads are the knowledge documents the agent chose to open.
-	StoreReads []StoreRead `json:"store_reads,omitempty"`
+	// KnowledgeReads are the knowledge documents the agent chose to open.
+	KnowledgeReads []KnowledgeRead `json:"knowledge_reads,omitempty"`
 	// Outcome is what the session produced, as far as the transcript shows.
 	Outcome Outcome `json:"outcome"`
 	// Prompts is how many times a person had to say something. A session that
@@ -86,8 +88,8 @@ type Bundle struct {
 	Digest string `json:"digest"`
 }
 
-// StoreRead is one knowledge document the agent opened.
-type StoreRead struct {
+// KnowledgeRead is one knowledge document the agent opened.
+type KnowledgeRead struct {
 	// ID is the document's frontmatter id, and Path is where it was read from.
 	// Both are kept: the id is the stable key, and the path is what the
 	// transcript actually recorded, so a document that has since moved or been
@@ -132,11 +134,11 @@ const (
 // Question is one thing a session was trying to establish. Populated only by a
 // pass that has a model available.
 type Question struct {
-	Question   string   `json:"question"`
-	Resolution string   `json:"resolution"`
-	Resolved   bool     `json:"resolved"`
-	ToolCalls  int      `json:"tool_calls"`
-	StoreDocs  []string `json:"store_docs_read,omitempty"`
+	Question      string   `json:"question"`
+	Resolution    string   `json:"resolution"`
+	Resolved      bool     `json:"resolved"`
+	ToolCalls     int      `json:"tool_calls"`
+	KnowledgeDocs []string `json:"knowledge_docs_read,omitempty"`
 }
 
 // How a question was answered.
@@ -148,7 +150,7 @@ type Question struct {
 // dependency's documentation was answered by neither this codebase nor the
 // store, which is what a content gap looks like from the inside.
 const (
-	ResolutionStoreRead       = "store_read"
+	ResolutionKnowledgeRead   = "knowledge_read"
 	ResolutionSourceRead      = "source_read"
 	ResolutionBashExploration = "bash_exploration"
 	ResolutionExternalDocs    = "external_docs"
@@ -160,7 +162,7 @@ const (
 // Resolutions is every way a question may be answered. A closed set, because a
 // vague extraction yields mush and an open one cannot be clustered.
 var Resolutions = []string{
-	ResolutionStoreRead,
+	ResolutionKnowledgeRead,
 	ResolutionSourceRead,
 	ResolutionBashExploration,
 	ResolutionExternalDocs,
