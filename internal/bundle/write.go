@@ -12,11 +12,10 @@ const (
 	MetaName     = "meta.json"
 	CatalogName  = "catalog.json"
 	PackagesName = "packages.json"
-	StoreMDName  = "store.md"
 	StoreDir     = "store"
 	// ControlsDir holds fixtures the review and audit jobs read and no agent
 	// grounds on. It sits outside StoreDir so that an agent pointed at the
-	// store cannot reach it, whether it reads files or the concatenated view.
+	// store cannot reach it.
 	ControlsDir = "controls"
 )
 
@@ -49,9 +48,6 @@ func Write(b *Bundle, dir string) error {
 		return err
 	}
 	if err := writeJSON(r, PackagesName, b.Packages); err != nil {
-		return err
-	}
-	if err := r.WriteFile(StoreMDName, []byte(b.StoreMD), 0o600); err != nil {
 		return err
 	}
 

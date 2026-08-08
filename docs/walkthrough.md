@@ -45,14 +45,13 @@ $QM bundle build --root "$STORE" --out "$QM_TRIAL/dist" --repo quartermaster-kno
 ls "$QM_TRIAL/dist"
 ```
 
-Six things come out:
+Five things come out:
 
 | File | What it is |
 |---|---|
 | `meta.json` | Format version, source repo and commit, counts, and the digest |
 | `catalog.json` | Every distributed document's frontmatter, for orientation |
 | `packages.json` | The compiled packages: names, and the rules, skills, and agents each resolves to |
-| `store.md` | Every document concatenated, for an agent that stuffs a prompt |
 | `store/` | The store tree, carried verbatim |
 | `controls/` | Canary fixtures, partitioned away from anything an agent grounds on |
 

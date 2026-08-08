@@ -55,7 +55,7 @@ build.`,
 
 			var report strings.Builder
 			fmt.Fprintf(&report, "wrote %s\n", v.out)
-			fmt.Fprintf(&report, "  %d docs, %d files, %d packages, %d KB concatenated\n",
+			fmt.Fprintf(&report, "  %d docs, %d files, %d packages, %d KB store\n",
 				builtBundle.Meta.Docs, builtBundle.Meta.Files, builtBundle.Meta.Packages,
 				builtBundle.Meta.StoreBytes/1024)
 			fmt.Fprintf(&report, "  %s\n", builtBundle.Meta.Digest)
