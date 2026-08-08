@@ -167,6 +167,13 @@ func Run(root string, cfg *config.Config) (Result, error) {
 // logDate matches the ISO 8601 date headings a log.md groups its entries under.
 var logDate = regexp.MustCompile(`^## \d{4}-\d{2}-\d{2}\s*$`)
 
+// okfVersion matches the major.minor form OKF version declarations use, e.g.
+// "0.2". It does not pin a specific version: an older store may legitimately
+// declare an earlier one, and bundle.go's fallback handles a store that
+// declares none at all. What it must not be is missing or malformed, since
+// nothing downstream could then trust the value it read.
+var okfVersion = regexp.MustCompile(`^\d+\.\d+$`)
+
 // conformance checks the Open Knowledge Format rules that apply to reserved
 // files, which the schema cannot cover because these files carry no frontmatter.
 func conformance(files []doc.ReservedFile) []Finding {
@@ -183,6 +190,9 @@ func conformance(files []doc.ReservedFile) []Finding {
 					Message: "index.md carries frontmatter, which only the store root may do",
 				})
 			}
+			if f.Path == doc.IndexName {
+				out = append(out, rootIndexFindings(f)...)
+			}
 
 		case doc.LogName:
 			// OKF §7: entries are grouped under ISO 8601 date headings.
@@ -198,6 +208,31 @@ func conformance(files []doc.ReservedFile) []Finding {
 	}
 
 	return out
+}
+
+// rootIndexFindings checks the one piece of frontmatter OKF §11 permits the
+// store root to carry. A root index with no frontmatter at all is not a
+// finding: bundle.go falls back to the pre-declaration default for it. One
+// that declares frontmatter but an absent or malformed okf_version is, since
+// a build would otherwise carry that value into every consumer unchecked.
+func rootIndexFindings(f doc.ReservedFile) []Finding {
+	if !bytes.HasPrefix(f.Body, []byte("---")) {
+		return nil
+	}
+
+	frontmatter, err := doc.Parse(f.Body)
+	if err != nil {
+		return []Finding{{Path: f.Path, Message: fmt.Sprintf("frontmatter: %s", err)}}
+	}
+
+	version, ok := frontmatter["okf_version"].(string)
+	if !ok || version == "" {
+		return []Finding{{Path: f.Path, Message: "declares frontmatter but no okf_version"}}
+	}
+	if !okfVersion.MatchString(version) {
+		return []Finding{{Path: f.Path, Message: fmt.Sprintf("okf_version %q is not a major.minor version", version)}}
+	}
+	return nil
 }
 
 // compile loads the schema from disk. Format is asserted rather than treated as

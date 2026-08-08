@@ -11,6 +11,9 @@ Nothing here is built. The command surface in section 2 is a rename of shipped
 code; sections 5 and 6 are new behavior. Claims about current state cite the
 file that proves them. Claims about intent are judgment and carry no citation.
 
+The occasional `ruleset` below inherits the parent spec's vocabulary; see its
+"Superseded since this verification" note for the current `package` naming.
+
 **What first use was.** Fifteen facet records across two repositories, three of
 them annotated by hand through the `digest-questions` skill, carrying eleven
 questions between them. That is not a corpus and no number below is a

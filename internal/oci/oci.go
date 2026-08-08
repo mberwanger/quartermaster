@@ -35,8 +35,8 @@ const (
 	// AnnotationBundleDigest carries the bundle's own content digest, which is
 	// what a manifest pins and what survives a repack.
 	AnnotationBundleDigest = "io.quartermaster.bundle.digest"
-	// AnnotationRulesets lists the ruleset names the bundle compiled.
-	AnnotationRulesets = "io.quartermaster.bundle.rulesets"
+	// AnnotationPackages lists the package names the bundle compiled.
+	AnnotationPackages = "io.quartermaster.bundle.packages"
 )
 
 // layerTitle names the layer, so `oras pull` writes a sensible filename.

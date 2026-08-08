@@ -47,8 +47,9 @@ func TestNewRootDeclaresCurrentOKFVersion(t *testing.T) {
 	}
 
 	got := read(t, root, "index.md")
-	if !strings.HasPrefix(got, "---\nokf_version: \"0.2\"\n---\n") {
-		t.Fatalf("root index does not declare OKF 0.2:\n%s", got)
+	want := "---\nokf_version: \"" + CurrentOKFVersion + "\"\n---\n"
+	if !strings.HasPrefix(got, want) {
+		t.Fatalf("root index does not declare the current OKF version %q:\n%s", CurrentOKFVersion, got)
 	}
 }
 
