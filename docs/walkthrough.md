@@ -39,6 +39,7 @@ specific, and deleting every Quartermaster file would leave a working knowledge
 repository behind.
 
 ```bash
+$QM bundle index --root "$STORE" --check
 $QM bundle validate --root "$STORE"
 $QM bundle build --root "$STORE" --out "$QM_TRIAL/dist" --repo quartermaster-knowledge --commit local
 ls "$QM_TRIAL/dist"

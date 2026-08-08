@@ -3,14 +3,12 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
-	"github.com/mberwanger/quartermaster/internal/config"
-	"github.com/mberwanger/quartermaster/internal/pack"
+	"github.com/mberwanger/quartermaster/internal/preflight"
 )
 
 type buildCmd struct {
@@ -32,48 +30,35 @@ func newBuildCmd() *buildCmd {
 The store tree is carried verbatim under store/, and everything else is a
 derived view that could be deleted and rebuilt from it, so the markdown stays
 authoritative by construction. catalog.json is the frontmatter of every doc.
-rulesets.json is the named selections, compiled against the gate so only
+packages.json is the named selections, compiled against the gate so only
 qualifying documents can become rules.
 
 Restricted documents never enter the bundle. A link that resolves to no doc,
-and a ruleset that references an unknown or gate-rejected id, both fail the
+and a package that references an unknown or gate-rejected id, both fail the
 build.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := config.Load(v.root)
-			if err != nil {
-				return err
-			}
-
-			var packages pack.File
-			if cfg.Packages != "" {
-				packages, err = pack.Load(filepath.Join(v.root, cfg.Packages))
-				if err != nil {
-					return err
-				}
-			}
-
-			b, err := bundle.Build(bundle.Options{
-				Root:     v.root,
-				Config:   cfg,
-				Packages: packages,
-				Repo:     v.repo,
-				Commit:   v.commit,
+			preflightResult, err := preflight.Run(preflight.Options{
+				Root:   v.root,
+				Repo:   v.repo,
+				Commit: v.commit,
 			})
 			if err != nil {
 				return err
 			}
+			builtBundle := preflightResult.Bundle
 
-			if err := bundle.Write(b, v.out); err != nil {
+			if err := bundle.Write(builtBundle, v.out); err != nil {
 				return err
 			}
 
 			var report strings.Builder
 			fmt.Fprintf(&report, "wrote %s\n", v.out)
 			fmt.Fprintf(&report, "  %d docs, %d files, %d packages, %d KB concatenated\n",
-				b.Meta.Docs, b.Meta.Files, b.Meta.Packages, b.Meta.StoreBytes/1024)
-			fmt.Fprintf(&report, "  %s\n", b.Meta.Digest)
+				builtBundle.Meta.Docs, builtBundle.Meta.Files, builtBundle.Meta.Packages,
+				builtBundle.Meta.StoreBytes/1024)
+			fmt.Fprintf(&report, "  %s\n", builtBundle.Meta.Digest)
 
 			_, err = io.WriteString(cmd.OutOrStdout(), report.String())
 			return err

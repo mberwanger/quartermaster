@@ -73,7 +73,7 @@ func (v *publishCmd) run(out io.Writer) error {
 		ocispec.AnnotationVersion:     repo.Reference(),
 		ocispec.AnnotationDescription: fmt.Sprintf("%s knowledge bundle, %d docs", b.Meta.Name, b.Meta.Docs),
 	}
-	if names := rulesetNames(b); names != "" {
+	if names := packageNames(b); names != "" {
 		annotations[oci.AnnotationRulesets] = names
 	}
 	for k, val := range annotations {
@@ -104,10 +104,10 @@ func (v *publishCmd) run(out io.Writer) error {
 	return err
 }
 
-func rulesetNames(b *bundle.Bundle) string {
+func packageNames(b *bundle.Bundle) string {
 	names := make([]string, 0, len(b.Packages))
-	for _, rs := range b.Packages {
-		names = append(names, rs.Name)
+	for _, compiledPackage := range b.Packages {
+		names = append(names, compiledPackage.Name)
 	}
 	return strings.Join(names, ",")
 }

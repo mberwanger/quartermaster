@@ -10,9 +10,12 @@ package scaffold
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 //go:embed all:files
@@ -21,7 +24,21 @@ var files embed.FS
 // ConfigFile is the declaration whose presence marks a directory as a store.
 const ConfigFile = "bundle.yaml"
 
-const nameToken = "{{NAME}}"
+const (
+	nameToken        = "{{NAME}}"
+	encodedNameToken = "{{NAME_JSON}}"
+)
+
+// ValidateName checks the store name before any scaffold files are written.
+func ValidateName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("store name must not be empty")
+	}
+	if strings.ContainsAny(name, "\r\n") {
+		return fmt.Errorf("store name must fit on one line")
+	}
+	return nil
+}
 
 // Exists reports whether dir already holds a store.
 func Exists(dir string) bool {
@@ -30,12 +47,20 @@ func Exists(dir string) bool {
 }
 
 // Write scaffolds a store into dir, substituting the store name, and returns the
-// files it created in the order they were written. It does not overwrite: a
-// caller checks Exists first and decides whether to proceed.
+// files it wrote in order. Existing scaffold-owned files are replaced; callers
+// decide whether that is allowed before invoking Write.
 func Write(dir, name string) ([]string, error) {
+	if err := ValidateName(name); err != nil {
+		return nil, err
+	}
+	encodedName, err := json.Marshal(name)
+	if err != nil {
+		return nil, fmt.Errorf("encode store name: %w", err)
+	}
+
 	var written []string
 
-	err := fs.WalkDir(files, "files", func(p string, e fs.DirEntry, err error) error {
+	err = fs.WalkDir(files, "files", func(p string, e fs.DirEntry, err error) error {
 		if err != nil || e.IsDir() {
 			return err
 		}
@@ -51,6 +76,7 @@ func Write(dir, name string) ([]string, error) {
 			return err
 		}
 		body = bytes.ReplaceAll(body, []byte(nameToken), []byte(name))
+		body = bytes.ReplaceAll(body, []byte(encodedNameToken), encodedName)
 
 		dest := filepath.Join(dir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {

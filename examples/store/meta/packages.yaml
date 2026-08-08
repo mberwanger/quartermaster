@@ -20,7 +20,7 @@ billing:
     - billing.money-representation
     - billing.payment-retries
 
-# Eligibility work. A billing repository takes neither this ruleset nor,
+# Eligibility work. A billing repository takes neither this package nor,
 # with a knowledge filter, the documents behind it.
 eligibility:
   rules:

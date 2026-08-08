@@ -39,8 +39,9 @@ repository that consumes it.
 | Command | Purpose |
 | --- | --- |
 | `qm bundle init` | Scaffold a new knowledge store |
+| `qm bundle index` | Regenerate directory listings, or check them in CI |
+| `qm bundle validate` | Run all compilation checks without emitting anything |
 | `qm bundle build` | Compile a source tree into a bundle |
-| `qm bundle validate` | Run the build checks without emitting anything |
 | `qm bundle explain <id>` | Show why a document did or did not become a rule |
 | `qm bundle publish` | Push a built bundle to a registry |
 | `qm init` | Set a repository up and run the first sync |

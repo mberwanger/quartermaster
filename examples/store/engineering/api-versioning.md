@@ -12,7 +12,7 @@ tags: [api, compatibility]
 
 # Versioning a public API
 
-This document declares no scope, so a ruleset that selects it makes it load in
+This document declares no scope, so a package that selects it makes it load in
 every session. That is the right choice here: it applies to any change that
 touches a contract, whatever language the repository is written in.
 

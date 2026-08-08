@@ -6,7 +6,7 @@ runs against it as-is.
 ```
 examples/store/
   bundle.yaml                what may become a rule
-  meta/rulesets.yaml         the named selections
+  meta/packages.yaml         the named selections
   engineering/               shared by every team
   billing/                   one team
   eligibility/               another team
@@ -20,7 +20,7 @@ another team's documents on disk:
 ```yaml
 bundles:
   - source: file://../quartermaster/examples/store
-    rulesets: [engineering, billing]
+    use: [engineering, billing]
     knowledge:
       domain: [engineering, billing]
 targets:
@@ -52,7 +52,7 @@ Three separate things are visible there:
   repository carrying all of it.
 - **The draft is on disk but is not a rule.** It stays readable, with
   `status: draft` at the top so the uncertainty travels with it, and `requires`
-  in `bundle.yaml` stops any ruleset promoting it. Try
+  in `bundle.yaml` stops any package promoting it. Try
   `qm bundle explain eng.experimental-cache`.
 - **Only two of five rules are always loaded.** The rest cost nothing until a
   matching file is open.
@@ -60,18 +60,18 @@ Three separate things are visible there:
 ## The same document, different residency
 
 `eng.logging` declares `scope: ["**/*.go"]`, so it normally loads only for Go.
-The `incident-review` ruleset overrides that scope to nothing:
+The `incident-review` package overrides that scope to nothing:
 
 ```yaml
 incident-review:
-  docs:
+  rules:
     - id: eng.logging
       scope: []
 ```
 
 ```
-rulesets: [engineering]        → 1 resident, 2 scoped   (logging is Go-scoped)
-rulesets: [incident-review]    → 1 resident, 0 scoped   (logging always loads)
+use: [engineering]        → 1 resident, 2 scoped   (logging is Go-scoped)
+use: [incident-review]    → 1 resident, 0 scoped   (logging always loads)
 ```
 
 Same document, same text, one implementation. Scope is a property of the
@@ -86,11 +86,11 @@ qm bundle explain --root examples/store eligibility.coverage-effective-dates
 qm status
 ```
 
-Ask for a ruleset whose document your filter excludes and the contradiction is
+Ask for a package whose document your filter excludes and the contradiction is
 reported rather than resolved for you:
 
 ```
-Error: ruleset "eligibility" needs eligibility.coverage-effective-dates,
+Error: package "eligibility" needs eligibility.coverage-effective-dates,
 which the knowledge filter excludes: domain is "eligibility",
 requires one of: engineering, billing
 ```

@@ -20,9 +20,9 @@ func newStatusCmd() *statusCmd {
 
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "Show resolved bundles, rulesets, and the resident budget",
+		Short: "Show resolved bundles, packages, and the resident budget",
 		Long: `Resolve the manifest and report what it produces: the bundles and their
-digests, the rulesets applied, the targets, and the resident set against its
+digests, the packages applied, the targets, and the resident set against its
 budget. It writes nothing.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,

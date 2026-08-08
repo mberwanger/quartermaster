@@ -5,7 +5,7 @@ packages: meta/packages.yaml
 include: ["**/*.md"]
 exclude: ["meta/templates/**"]
 
-# What a document must be before any ruleset may turn it into a rule. A draft is
+# What a document must be before any package may turn it into a rule. A draft is
 # still distributed and still readable; it just never loads on its own.
 requires:
   status: [active]

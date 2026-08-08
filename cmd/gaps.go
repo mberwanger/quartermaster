@@ -126,7 +126,7 @@ func (v *gapsCmd) run(out io.Writer) error {
 		}
 		fmt.Fprintf(&b, "\nwrote %d draft(s) to %s\n", written, v.drafts)
 		fmt.Fprintf(&b, "They are drafts on purpose: status draft, provenance asserted, so the\n")
-		fmt.Fprintf(&b, "store's own gate keeps them out of every ruleset until a person promotes one.\n")
+		fmt.Fprintf(&b, "store's own gate keeps them out of every package until a person promotes one.\n")
 	}
 
 	_, err = io.WriteString(out, b.String())

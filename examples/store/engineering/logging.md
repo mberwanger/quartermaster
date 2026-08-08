@@ -16,7 +16,7 @@ sources:
 
 # Structured logging
 
-Scoped to Go here, but the `incident-review` ruleset overrides that scope to
+Scoped to Go here, but the `incident-review` package overrides that scope to
 nothing, so a repository that reviews incidents loads it in every session. Same
 document, same text, different residency — the consumer decides.
 

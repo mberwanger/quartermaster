@@ -14,7 +14,7 @@ tags: [dates, correctness]
 
 This document exists to be *absent* from the billing example. A repository that
 filters `knowledge.domain` to engineering and billing never sees this file at
-all, and never takes the `eligibility` ruleset that would make it a rule.
+all, and never takes the `eligibility` package that would make it a rule.
 
 That is the point: one store can serve an organization without every repository
 carrying all of it.
