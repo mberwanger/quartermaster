@@ -102,7 +102,7 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 		fmt.Fprintf(&b, "  packages    none reference it\n")
 	}
 	for _, sel := range referencing {
-		fmt.Fprintf(&b, "  packages    as %s: %s\n", sel.kind, strings.Join(sel.packages, ", "))
+		fmt.Fprintf(&b, "  packages    as %s: %s\n", sel.kind, strings.Join(sel.packages(), ", "))
 	}
 
 	// The bottom line, which is per kind because the qualifying predicate is.
@@ -113,13 +113,24 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 		fmt.Fprintf(&b, "  → not materialized\n")
 	}
 	for _, sel := range referencing {
-		ok, why := v.qualifies(cfg, sel.kind, found, allowed, reason)
+		ok, why := qualifies(cfg, sel.kind, found, allowed, reason)
 		if ok {
-			fmt.Fprintf(&b, "  → materializes as %s via %s\n", article(sel.kind), strings.Join(sel.packages, ", "))
+			fmt.Fprintf(&b, "  → materializes as %s via %s\n", article(sel.kind), strings.Join(sel.packages(), ", "))
 			continue
 		}
-		fmt.Fprintf(&b, "  → selected as %s by %s, which it cannot be: %s, so the build fails until fixed\n",
-			article(sel.kind), strings.Join(sel.packages, ", "), why)
+		// Naming a document that cannot be what it was named as is an author's
+		// mistake and stops the build. A pattern or a predicate that happens to
+		// cover it skips it instead, so the build succeeds and the package
+		// simply does not carry it. Reporting both as a failure would send
+		// someone to fix a store that builds.
+		if len(sel.byName) > 0 {
+			fmt.Fprintf(&b, "  → named as %s by %s, which it cannot be: %s, so the build fails until fixed\n",
+				article(sel.kind), strings.Join(sel.byName, ", "), why)
+		}
+		if len(sel.byMatch) > 0 {
+			fmt.Fprintf(&b, "  → matched as %s by %s and skipped there: %s\n",
+				article(sel.kind), strings.Join(sel.byMatch, ", "), why)
+		}
 	}
 
 	_, err = io.WriteString(out, b.String())
@@ -130,7 +141,7 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 // restricted first and for every kind, then the gate for every kind, then the
 // one extra test that kind carries. It has to stay in step with pack.qualifies,
 // which is what TestExplainAgreesWithTheCompiler exists to enforce.
-func (v *explainCmd) qualifies(cfg *config.Config, kind pack.Kind, d *doc.Doc, allowed bool, reason string) (bool, string) {
+func qualifies(cfg *config.Config, kind pack.Kind, d *doc.Doc, allowed bool, reason string) (bool, string) {
 	if d.Restricted() {
 		return false, "it is restricted and never leaves the store"
 	}
@@ -178,12 +189,24 @@ func loadPackages(root string, cfg *config.Config) (pack.File, error) {
 	return pack.Load(filepath.Join(root, cfg.Packages))
 }
 
-// selection is the packages that name a document as one kind. A document is
+// selection is the packages that select a document as one kind. A document is
 // usually selected as one thing, but nothing stops two packages disagreeing, so
 // the kind is carried rather than assumed.
+//
+// byName and byMatch are kept apart because the compiler treats them differently
+// when a document does not qualify: naming one outright fails the build, while a
+// pattern or a predicate skips it and builds on. Reporting both as "referenced"
+// would make explain announce a failing build for a store that builds.
 type selection struct {
-	kind     pack.Kind
-	packages []string
+	kind    pack.Kind
+	byName  []string
+	byMatch []string
+}
+
+// packages is every package selecting the document, in one list, for the case
+// where the distinction does not matter.
+func (s selection) packages() []string {
+	return append(append([]string{}, s.byName...), s.byMatch...)
 }
 
 // packagesReferencing reports which packages name a document, and as what. The
@@ -192,7 +215,7 @@ type selection struct {
 // reported when it matches, so an author can see that a document is selected
 // without a package naming it outright.
 func packagesReferencing(f pack.File, id string, frontmatter map[string]any) []selection {
-	byKind := map[pack.Kind][]string{}
+	byKind := map[pack.Kind]*selection{}
 	for _, name := range f.Names() {
 		p := f[name]
 		for _, sel := range []struct {
@@ -203,28 +226,45 @@ func packagesReferencing(f pack.File, id string, frontmatter map[string]any) []s
 			{pack.KindSkill, p.Skills},
 			{pack.KindAgent, p.Agents},
 		} {
-			if selects(sel.refs, id, frontmatter) {
-				byKind[sel.kind] = append(byKind[sel.kind], name)
+			matched, exact := selects(sel.refs, id, frontmatter)
+			if !matched {
+				continue
+			}
+			if byKind[sel.kind] == nil {
+				byKind[sel.kind] = &selection{kind: sel.kind}
+			}
+			if exact {
+				byKind[sel.kind].byName = append(byKind[sel.kind].byName, name)
+			} else {
+				byKind[sel.kind].byMatch = append(byKind[sel.kind].byMatch, name)
 			}
 		}
 	}
 
 	var out []selection
 	for _, kind := range []pack.Kind{pack.KindRule, pack.KindSkill, pack.KindAgent} {
-		if names := byKind[kind]; len(names) > 0 {
-			out = append(out, selection{kind: kind, packages: names})
+		if s := byKind[kind]; s != nil {
+			out = append(out, *s)
 		}
 	}
 	return out
 }
 
-func selects(refs []pack.Ref, id string, frontmatter map[string]any) bool {
+// selects reports whether any of a package's selections covers the document, and
+// whether the one that did named it outright. A package naming a document and
+// also globbing it is reported as naming it, because that is the selection whose
+// failure the author would see.
+func selects(refs []pack.Ref, id string, frontmatter map[string]any) (matched, exact bool) {
 	for _, ref := range refs {
-		if ref.Matches(id, frontmatter) {
-			return true
+		if !ref.Matches(id, frontmatter) {
+			continue
+		}
+		matched = true
+		if ref.Exact() {
+			return true, true
 		}
 	}
-	return false
+	return matched, false
 }
 
 func yesNo(cond bool, yes, no string) string {

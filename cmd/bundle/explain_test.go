@@ -71,6 +71,22 @@ agent:
 # Doc reviewer
 `)
 
+	// Draft, and covered by the same where clause as eng.tagged below. The
+	// compiler skips a predicate match that does not qualify rather than failing,
+	// so this document is how the fixture exercises the skip path — and how it
+	// stays compilable while containing something the gate rejects.
+	writeDoc(t, root, "engineering/draft-tagged.md", `---
+id: eng.draft-tagged
+title: An unfinished tagged convention
+description: Covered by the tagged package's where clause, and rejected by the gate.
+type: concept
+status: draft
+tags: [ops]
+---
+
+# Unfinished
+`)
+
 	writeDoc(t, root, "engineering/tagged.md", `---
 id: eng.tagged
 title: A tagged convention
@@ -188,6 +204,28 @@ func TestExplainReportsACapabilityTheGateRejects(t *testing.T) {
 	}
 }
 
+// Naming a document that cannot be what it was named as fails the build. A
+// pattern or predicate that merely covers it skips it, and the build succeeds.
+// explain reported both as a failure, so pointing it at a draft skill in a store
+// selecting skills.engineering.* announced "the build fails until fixed" about a
+// store that builds cleanly and simply carries no skill.
+func TestExplainDistinguishesASkippedMatchFromAFailedBuild(t *testing.T) {
+	root := explainFixture(t)
+
+	got := explainOutput(t, root, "eng.draft-tagged")
+	if !strings.Contains(got, "skipped there") {
+		t.Errorf("a predicate match that does not qualify was not reported as skipped:\n%s", got)
+	}
+	if strings.Contains(got, "build fails") {
+		t.Errorf("explain claims a build failure for a match the compiler skips:\n%s", got)
+	}
+
+	// The claim is checked against the compiler: this store builds.
+	if _, err := preflight.Run(preflight.Options{Root: root}); err != nil {
+		t.Fatalf("explain says the build survives a skipped match, but it does not: %v", err)
+	}
+}
+
 // A selection may be a predicate instead of an id. explain skipped those
 // outright, so a store using where clauses got a confidently short answer.
 func TestExplainSeesAPredicateSelection(t *testing.T) {
@@ -250,9 +288,19 @@ func TestExplainAgreesWithTheCompiler(t *testing.T) {
 			continue
 		}
 
+		// What explain effectively claims will ship. A selection the document
+		// does not qualify for ships nothing: named, the build would have failed
+		// and there would be no compiled output to compare; matched, the
+		// compiler skips it. Either way the answer is the empty set, and
+		// comparing raw references instead would have explain disagree with the
+		// compiler on every pattern that covers a draft.
+		allowed, reason := cfg.Requires.Allows(d.Frontmatter)
 		reported := map[pack.Kind][]string{}
 		for _, sel := range packagesReferencing(packages, id, d.Frontmatter) {
-			names := slices.Clone(sel.packages)
+			if ok, _ := qualifies(cfg, sel.kind, &d, allowed, reason); !ok {
+				continue
+			}
+			names := sel.packages()
 			slices.Sort(names)
 			reported[sel.kind] = names
 		}

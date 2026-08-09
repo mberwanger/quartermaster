@@ -108,6 +108,15 @@ func MatchID(pattern, id string) (bool, error) {
 	return doublestar.Match(strings.ReplaceAll(pattern, ".", "/"), strings.ReplaceAll(id, ".", "/"))
 }
 
+// Exact reports whether this selection names one document outright rather than
+// describing a set. The difference decides what happens to a document that does
+// not qualify: naming one is an author's mistake and fails the build, while a
+// pattern skips it, so that drafting one document does not break every package
+// globbing its neighbours.
+func (r Ref) Exact() bool {
+	return r.Where.Empty() && !strings.ContainsAny(r.ID, "*?[")
+}
+
 // Matches reports whether this selection covers one document, by id pattern or
 // by predicate over its frontmatter.
 //
