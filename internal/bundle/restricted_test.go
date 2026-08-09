@@ -46,6 +46,37 @@ func TestNoRequirementsStillBlocksRestricted(t *testing.T) {
 	}
 }
 
+// Withholding a restricted document is Quartermaster's guarantee rather than a
+// policy a store opts into, so it has to hold with no requires: at all. The
+// scaffold used to declare visibility: { not: [restricted] } alongside status,
+// which read as the line doing this work. It never was, and an author who
+// deleted it would have believed they had changed something.
+func TestNoRequirementsStillWithholdsRestrictedFromTheArtifact(t *testing.T) {
+	cfg := &config.Config{Include: []string{"**/*.md"}, Exclude: []string{"meta/templates/**"}}
+
+	b, err := buildWith(t, cfg, pack.File{})
+	if err != nil {
+		t.Fatalf("build with no requirements: %v", err)
+	}
+
+	const restricted = "engineering/secret.md"
+	for _, f := range b.Files {
+		if f.Path == restricted {
+			t.Errorf("%s is carried in the artifact with no gate declared", restricted)
+		}
+	}
+	for _, e := range b.Catalog {
+		if e.Path == restricted {
+			t.Errorf("%s appears in the catalog with no gate declared", restricted)
+		}
+	}
+
+	// The fixture has to actually contain the document, or this proves nothing.
+	if len(b.Files) == 0 {
+		t.Fatal("the build carried no files at all; the fixture is not exercising this")
+	}
+}
+
 // The compiled package must never reference a path the bundle does not carry;
 // that invariant is what the restricted check protects.
 func TestCompiledPackagesResolveToCarriedFiles(t *testing.T) {

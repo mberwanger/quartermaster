@@ -9,4 +9,3 @@ exclude: ["meta/templates/**"]
 # still distributed and still readable; it just never loads on its own.
 requires:
   status: [stable]
-  visibility: { not: [restricted] }

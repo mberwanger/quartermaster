@@ -68,9 +68,15 @@ Everything else, and more of the tool than the table suggests.
 
 **Which fields decide eligibility.** `requires:` in `bundle.yaml` names the
 fields a document must satisfy before a package may turn it into a rule. The
-fields are yours: a scaffolded store gates on `status` and `visibility`, but
-nothing in the tool knows those names. An omitted or empty `requires:` means
-everything qualifies.
+fields are yours: a scaffolded store gates on `status`, but nothing in the tool
+knows that name. An omitted or empty `requires:` means everything qualifies.
+
+`visibility` is the exception, and it runs the other way. A restricted document
+is refused by Quartermaster itself, in `internal/bundle` and again in the package
+compiler, whether or not `requires:` mentions it. Gating on it is therefore
+allowed and does nothing, which is worse than useless in a scaffold: it reads as
+the thing keeping restricted documents out, so an author who deletes the line
+believes they have changed something. They have not.
 
 **What counts as a skill.** The `skills:` gate is an ordinary field predicate.
 `type: [skill]` is a convention, not a rule.

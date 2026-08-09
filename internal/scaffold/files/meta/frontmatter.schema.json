@@ -42,7 +42,6 @@
     "visibility": { "enum": ["internal", "restricted"] },
     "skill": {
       "type": "object",
-      "required": ["name"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
@@ -51,7 +50,6 @@
     },
     "agent": {
       "type": "object",
-      "required": ["name"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
