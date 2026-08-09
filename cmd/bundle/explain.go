@@ -33,9 +33,9 @@ expected. A malformed one is qm bundle validate's job, and it says so loudly;
 this is for the case where nothing failed and the document is simply not
 selected, which no other command reports.
 
-What has to hold depends on the kind. The requires gate in bundle.yaml decides
-rule eligibility only. A skill is judged by the skills predicate, an agent by
-whether it declares an agent block, and a restricted document can be none of
+The requires gate in bundle.yaml has to hold whatever the kind, and each kind
+then carries one more test: a skill is judged by the skills predicate, an agent
+by whether it declares an agent block. A restricted document can be none of
 them.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -91,12 +91,11 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 	fmt.Fprintf(&b, "  on disk     %s\n", yesNo(isDoc && !restricted && !cfg.IsControl(found.Path),
 		"yes", "no"))
 
-	// The requires gate decides rule eligibility and nothing else. A skill is
-	// judged by the skills predicate and an agent by whether it declares an
-	// agent block, so reporting this as though it governed all three would say
-	// a draft skill cannot ship when it can.
-	ruleAllowed, ruleReason := cfg.Requires.Allows(found.Frontmatter)
-	fmt.Fprintf(&b, "  rule gate   %s\n", metOrNot(ruleAllowed, ruleReason))
+	// The gate governs every kind, so this is one line rather than a caveat per
+	// kind. What differs between kinds is the additional test each has to pass,
+	// which is reported with the verdict below.
+	allowed, reason := cfg.Requires.Allows(found.Frontmatter)
+	fmt.Fprintf(&b, "  requires    %s\n", metOrNot(allowed, reason))
 
 	referencing := packagesReferencing(packages, id, found.Frontmatter)
 	if len(referencing) == 0 {
@@ -114,29 +113,31 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 		fmt.Fprintf(&b, "  → not materialized\n")
 	}
 	for _, sel := range referencing {
-		ok, reason := v.qualifies(cfg, sel.kind, found, ruleAllowed, ruleReason)
+		ok, why := v.qualifies(cfg, sel.kind, found, allowed, reason)
 		if ok {
 			fmt.Fprintf(&b, "  → materializes as %s via %s\n", article(sel.kind), strings.Join(sel.packages, ", "))
 			continue
 		}
 		fmt.Fprintf(&b, "  → selected as %s by %s, which it cannot be: %s, so the build fails until fixed\n",
-			article(sel.kind), strings.Join(sel.packages, ", "), reason)
+			article(sel.kind), strings.Join(sel.packages, ", "), why)
 	}
 
 	_, err = io.WriteString(out, b.String())
 	return err
 }
 
-// qualifies mirrors what the package compiler asks of a document for each kind.
-// Restricted is checked first and for every kind, because a restricted document
-// never enters the bundle and so cannot be selected as anything.
-func (v *explainCmd) qualifies(cfg *config.Config, kind pack.Kind, d *doc.Doc, ruleAllowed bool, ruleReason string) (bool, string) {
+// qualifies mirrors what the package compiler asks of a document for each kind:
+// restricted first and for every kind, then the gate for every kind, then the
+// one extra test that kind carries. It has to stay in step with pack.qualifies,
+// which is what TestExplainAgreesWithTheCompiler exists to enforce.
+func (v *explainCmd) qualifies(cfg *config.Config, kind pack.Kind, d *doc.Doc, allowed bool, reason string) (bool, string) {
 	if d.Restricted() {
 		return false, "it is restricted and never leaves the store"
 	}
+	if !allowed {
+		return false, reason
+	}
 	switch kind {
-	case pack.KindRule:
-		return ruleAllowed, ruleReason
 	case pack.KindSkill:
 		if ok, _ := cfg.Skills.Allows(d.Frontmatter); !ok {
 			return false, "it is not a skill"

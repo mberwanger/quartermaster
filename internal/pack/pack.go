@@ -325,11 +325,18 @@ func qualifies(kind Kind, d doc.Doc, opts Options) (bool, string) {
 		return false, "it is restricted and never leaves the store"
 	}
 
+	// The gate applies to every kind, not only rules. It used to govern rules
+	// alone, which meant a store could gate on status: [stable] and still ship a
+	// draft skill, tool grants and all, to every repository selecting the pattern
+	// that matched it. A capability is the stronger delivery of the two: a rule
+	// is text an agent reads, and a skill is something it can be handed along
+	// with permission to run things. Holding the weaker one to a standard the
+	// stronger one escapes was the wrong way round.
+	if ok, reason := opts.Requires.Allows(d.Frontmatter); !ok {
+		return false, reason
+	}
+
 	switch kind {
-	case KindRule:
-		if ok, reason := opts.Requires.Allows(d.Frontmatter); !ok {
-			return false, reason
-		}
 	case KindSkill:
 		if opts.IsSkill != nil && !opts.IsSkill(d) {
 			return false, "it is not a skill"

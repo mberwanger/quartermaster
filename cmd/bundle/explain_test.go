@@ -42,8 +42,8 @@ skill:
 # Review a diff
 `)
 
-	// Draft on purpose: the requires gate rejects a draft, and it governs rules
-	// only, so this must still ship as a skill.
+	// Draft on purpose, and deliberately not selected by any package, so the
+	// fixture still compiles. The test that selects it does so on its own copy.
 	writeDoc(t, root, "capabilities/skills/draft-review/skill.md", `---
 id: skills.draft-review
 title: Review a diff, unfinished
@@ -90,7 +90,6 @@ tags: [ops]
 capable:
   skills:
     - skills.review
-    - skills.draft-review
   agents:
     - agents.reviewer
 tagged:
@@ -159,24 +158,33 @@ func TestExplainNamesTheKindItIsSelectedAs(t *testing.T) {
 	}
 }
 
-// The requires gate decides rule eligibility and nothing else. explain used to
-// apply it to every kind and then announce that the build would fail, which was
-// not true and was the most expensive way to be wrong: it sends someone to fix
-// a document that was never broken.
-func TestExplainDoesNotApplyTheRuleGateToACapability(t *testing.T) {
+// The gate governs capabilities too. A draft skill used to ship, tool grants and
+// all, because requires was applied to rules alone; explain has to report that
+// the same way the compiler decides it.
+func TestExplainReportsACapabilityTheGateRejects(t *testing.T) {
 	root := explainFixture(t)
 
+	// Select the draft skill, which the base fixture deliberately leaves alone.
+	appendTo(t, filepath.Join(root, "meta", "packages.yaml"), `drafty:
+  skills:
+    - skills.draft-review
+`)
+
 	got := explainOutput(t, root, "skills.draft-review")
-	if !strings.Contains(got, "materializes as a skill via") {
-		t.Errorf("a draft skill was not reported as shipping:\n%s", got)
+	if !strings.Contains(got, "which it cannot be") || !strings.Contains(got, `status is "draft"`) {
+		t.Errorf("a gate-rejected skill was not reported as such:\n%s", got)
 	}
-	if strings.Contains(got, "build fails") {
-		t.Errorf("explain claims the build fails on a draft skill:\n%s", got)
+	if strings.Contains(got, "materializes as a skill") {
+		t.Errorf("explain says a draft skill ships:\n%s", got)
 	}
 
 	// And the claim is checked against the thing that decides it.
-	if _, err := preflight.Run(preflight.Options{Root: root}); err != nil {
-		t.Fatalf("the store explain called shippable does not compile: %v", err)
+	_, err := preflight.Run(preflight.Options{Root: root})
+	if err == nil {
+		t.Fatal("the compiler accepted a draft skill that explain says it refuses")
+	}
+	if !strings.Contains(err.Error(), `status is "draft"`) {
+		t.Errorf("compiler refused it for a different reason: %v", err)
 	}
 }
 

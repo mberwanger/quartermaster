@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -103,6 +104,77 @@ func TestFilterContradictingPackageFails(t *testing.T) {
 	// core needs eng.errors, which is tagged go rather than observability.
 	if !strings.Contains(err.Error(), "eng.errors") || !strings.Contains(err.Error(), "knowledge filter") {
 		t.Fatalf("error should name the document and the filter, got: %v", err)
+	}
+}
+
+// storeWithACapability copies the fixture and adds a skill and an agent, which
+// the base store has none of. That absence is why the contradiction below went
+// unnoticed: every test exercising the filter used a store made only of rules.
+func storeWithACapability(t *testing.T) string {
+	t.Helper()
+	src, err := filepath.Abs("../bundle/testdata/store")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if err := os.CopyFS(root, os.DirFS(src)); err != nil {
+		t.Fatal(err)
+	}
+
+	write := func(rel, body string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write("capabilities/review/skill.md", "---\nid: skills.review\ntitle: Review a diff\n"+
+		"description: Read a change the way a reviewer would.\ntype: skill\nstatus: stable\n"+
+		"skill:\n  allowed-tools: [Read]\n---\n\n# Review\n")
+	write("capabilities/reviewer.md", "---\nid: agents.reviewer\ntitle: Doc reviewer\n"+
+		"description: Delegates a documentation review.\ntype: agent\nstatus: stable\n"+
+		"agent:\n  tools: [Read]\n---\n\n# Reviewer\n")
+	write("meta/packages.yaml", "capable:\n  skills:\n    - skills.review\n  agents:\n    - agents.reviewer\n")
+
+	body, err := os.ReadFile(filepath.Join(root, "bundle.yaml")) //nolint:gosec // a fixture this test built
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "bundle.yaml"),
+		append(body, []byte("\nskills:\n  type: [skill]\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+// The contradiction check covered rules and not capabilities, so a repository
+// could filter a document out of its knowledge tree and still be handed the same
+// text as a loadable skill, with whatever tools it declared. Verified against the
+// real store before the fix: type: [concept] dropped the skill from the tree and
+// materialized it into .claude/skills anyway.
+func TestFilterContradictingCapabilityFails(t *testing.T) {
+	store := storeWithACapability(t)
+
+	for _, kind := range []string{"skill", "agent"} {
+		t.Run(kind, func(t *testing.T) {
+			dir := t.TempDir()
+			writeManifest(t, dir, "bundles:\n"+
+				"  - source: file://"+store+"\n"+
+				"    use: [capable]\n"+
+				"    knowledge:\n      type: { not: ["+kind+"] }\n"+
+				"targets:\n  - claude\n")
+
+			_, err := Compute(dir)
+			if err == nil {
+				t.Fatalf("a %s the knowledge filter excludes was materialized anyway", kind)
+			}
+			if !strings.Contains(err.Error(), "knowledge filter") {
+				t.Fatalf("error should name the filter, got: %v", err)
+			}
+		})
 	}
 }
 

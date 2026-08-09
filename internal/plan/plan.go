@@ -14,6 +14,7 @@ import (
 	"path"
 
 	"github.com/mberwanger/quartermaster/internal/doc"
+	"github.com/mberwanger/quartermaster/internal/gate"
 	"github.com/mberwanger/quartermaster/internal/manifest"
 	"github.com/mberwanger/quartermaster/internal/provider"
 	"github.com/mberwanger/quartermaster/internal/state"
@@ -114,15 +115,8 @@ func Compute(dir string) (*Result, error) {
 				if !ok {
 					return nil, fmt.Errorf("package %q references %s at %s, absent from the store tree", name, cd.ID, cd.Path)
 				}
-				// Selecting a package whose rule the knowledge filter drops is
-				// a contradiction. Materializing it would ignore the filter;
-				// dropping it silently would ignore the package. Say so instead,
-				// and let the author resolve it.
-				if !mb.Knowledge.Empty() {
-					if allowed, reason := mb.Knowledge.Allows(fmByPath[cd.Path]); !allowed {
-						return nil, fmt.Errorf("package %q needs %s, which the knowledge filter excludes: %s",
-							name, cd.ID, reason)
-					}
+				if err := filterContradiction(mb.Knowledge, fmByPath[cd.Path], name, cd.ID); err != nil {
+					return nil, err
 				}
 				d := target.Doc{
 					ID:          cd.ID,
@@ -144,6 +138,9 @@ func Compute(dir string) (*Result, error) {
 					continue
 				}
 				seenSkill[cd.ID] = true
+				if err := filterContradiction(mb.Knowledge, fmByPath[cd.Path], name, cd.ID); err != nil {
+					return nil, err
+				}
 				sk, err := resolveSkill(b, cd.ID, bodyByPath)
 				if err != nil {
 					return nil, err
@@ -157,6 +154,9 @@ func Compute(dir string) (*Result, error) {
 					continue
 				}
 				seenAgent[cd.ID] = true
+				if err := filterContradiction(mb.Knowledge, fmByPath[cd.Path], name, cd.ID); err != nil {
+					return nil, err
+				}
 				a, err := resolveAgent(b, cd.ID, bodyByPath)
 				if err != nil {
 					return nil, err
@@ -225,4 +225,25 @@ func Compute(dir string) (*Result, error) {
 	}
 
 	return r, nil
+}
+
+// filterContradiction rejects a package that needs a document the repository's
+// knowledge filter excludes. Materializing it would ignore the filter; dropping
+// it silently would ignore the package. Say so instead, and let the author
+// resolve it.
+//
+// This covers capabilities as well as rules. It was rules-only, on the reasoning
+// that the filter scopes the knowledge tree and a capability is delivered
+// elsewhere. But a skill's prose lands in the harness directory whichever way
+// the filter is set, so a repository could filter a document out of its tree and
+// still be handed the same text as a loadable skill. That is the contradiction
+// this exists to name, arriving through another door.
+func filterContradiction(filter gate.Gate, frontmatter map[string]any, pkg, id string) error {
+	if filter.Empty() {
+		return nil
+	}
+	if allowed, reason := filter.Allows(frontmatter); !allowed {
+		return fmt.Errorf("package %q needs %s, which the knowledge filter excludes: %s", pkg, id, reason)
+	}
+	return nil
 }
