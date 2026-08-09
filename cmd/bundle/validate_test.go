@@ -43,20 +43,16 @@ func TestValidateReturnsValidationErrorUnwrapped(t *testing.T) {
 
 	command := newValidateCmd()
 	command.root = storeRoot
-	command.cmd.SetOut(&bytes.Buffer{})
-	command.cmd.SetErr(&bytes.Buffer{})
 
-	err := command.cmd.RunE(command.cmd, nil)
+	err := command.run(&bytes.Buffer{})
 	assertBareValidationError(t, err)
 }
 
 func TestValidatePassesOnAValidStore(t *testing.T) {
 	command := newValidateCmd()
 	command.root = storeFixture
-	command.cmd.SetOut(&bytes.Buffer{})
-	command.cmd.SetErr(&bytes.Buffer{})
 
-	if err := command.cmd.RunE(command.cmd, nil); err != nil {
+	if err := command.run(&bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -68,10 +64,8 @@ func TestBuildReturnsValidationErrorUnwrapped(t *testing.T) {
 	command := newBuildCmd()
 	command.root = storeRoot
 	command.out = filepath.Join(t.TempDir(), "dist")
-	command.cmd.SetOut(&bytes.Buffer{})
-	command.cmd.SetErr(&bytes.Buffer{})
 
-	err := command.cmd.RunE(command.cmd, nil)
+	err := command.run(&bytes.Buffer{})
 	assertBareValidationError(t, err)
 }
 

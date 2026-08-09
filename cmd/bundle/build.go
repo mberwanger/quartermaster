@@ -39,29 +39,7 @@ build.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			preflightResult, err := preflight.Run(preflight.Options{
-				Root:   v.root,
-				Repo:   v.repo,
-				Commit: v.commit,
-			})
-			if err != nil {
-				return err
-			}
-			builtBundle := preflightResult.Bundle
-
-			if err := bundlepkg.Write(builtBundle, v.out); err != nil {
-				return err
-			}
-
-			var report strings.Builder
-			fmt.Fprintf(&report, "wrote %s\n", v.out)
-			fmt.Fprintf(&report, "  %d docs, %d files, %d packages, %d KB store\n",
-				builtBundle.Meta.Docs, builtBundle.Meta.Files, builtBundle.Meta.Packages,
-				builtBundle.Meta.StoreBytes/1024)
-			fmt.Fprintf(&report, "  %s\n", builtBundle.Meta.Digest)
-
-			_, err = io.WriteString(cmd.OutOrStdout(), report.String())
-			return err
+			return v.run(cmd.OutOrStdout())
 		},
 	}
 
@@ -72,4 +50,30 @@ build.`,
 
 	v.cmd = cmd
 	return v
+}
+
+func (v *buildCmd) run(out io.Writer) error {
+	preflightResult, err := preflight.Run(preflight.Options{
+		Root:   v.root,
+		Repo:   v.repo,
+		Commit: v.commit,
+	})
+	if err != nil {
+		return err
+	}
+	builtBundle := preflightResult.Bundle
+
+	if err := bundlepkg.Write(builtBundle, v.out); err != nil {
+		return err
+	}
+
+	var report strings.Builder
+	fmt.Fprintf(&report, "wrote %s\n", v.out)
+	fmt.Fprintf(&report, "  %d docs, %d files, %d packages, %d KB store\n",
+		builtBundle.Meta.Docs, builtBundle.Meta.Files, builtBundle.Meta.Packages,
+		builtBundle.Meta.StoreBytes/1024)
+	fmt.Fprintf(&report, "  %s\n", builtBundle.Meta.Digest)
+
+	_, err = io.WriteString(out, report.String())
+	return err
 }
