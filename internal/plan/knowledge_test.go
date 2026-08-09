@@ -8,8 +8,8 @@ import (
 )
 
 // manifestWith builds a consumer manifest against the fixture store with the
-// given rulesets and knowledge filter block.
-func manifestWith(t *testing.T, rulesets, knowledge string) string {
+// given packages and knowledge filter block.
+func manifestWith(t *testing.T, packages, knowledge string) string {
 	t.Helper()
 	store, err := filepath.Abs("../bundle/testdata/store")
 	if err != nil {
@@ -18,7 +18,7 @@ func manifestWith(t *testing.T, rulesets, knowledge string) string {
 	dir := t.TempDir()
 	writeManifest(t, dir, "bundles:\n"+
 		"  - source: file://"+store+"\n"+
-		"    use: ["+rulesets+"]\n"+
+		"    use: ["+packages+"]\n"+
 		knowledge+
 		"targets:\n  - claude\n")
 	return dir
@@ -94,7 +94,7 @@ func TestFilterOnScalarField(t *testing.T) {
 
 // Selecting a package whose document the filter excludes is a contradiction, and
 // must be reported rather than silently resolved either way.
-func TestFilterContradictingRulesetFails(t *testing.T) {
+func TestFilterContradictingPackageFails(t *testing.T) {
 	_, err := Compute(manifestWith(t, "core",
 		"    knowledge:\n      tags: [observability]\n"))
 	if err == nil {

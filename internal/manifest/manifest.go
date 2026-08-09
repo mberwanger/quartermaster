@@ -1,5 +1,5 @@
 // Package manifest reads the per-repository declaration a consumer commits: the
-// bundles it draws from, the rulesets it applies, and the harnesses it targets.
+// bundles it draws from, the packages it applies, and the harnesses it targets.
 //
 // The manifest is the whole of what a repository declares. Everything
 // materialized is reproducible from it, which is why the harness-specific output

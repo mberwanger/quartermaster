@@ -10,11 +10,11 @@
 // store/ and greps it, which is how a coding agent actually works.
 // catalog.json is the frontmatter of every doc, for orientation and tooling.
 //
-// A bundle additionally carries rulesets: named selections of documents,
-// compiled at build time against the store's gate. A ruleset holds no prose,
-// only references, so a consumer renders it into a harness without evaluating
-// any predicate. Everything in the bundle is retrievable; a ruleset is what
-// makes a subset resident.
+// A bundle additionally carries packages: named selections of rules and
+// capabilities, compiled at build time against the store's gate. A package holds
+// no prose, only references, so a consumer renders it into a harness without
+// evaluating any predicate. Everything in the bundle is retrievable; a package
+// is what makes a subset resident.
 package bundle
 
 import (
@@ -395,7 +395,7 @@ func fenceOpen(line string) string {
 // tree collects the store files carried verbatim into the artifact: the
 // document and control markdown, read straight from disk. It reuses the config's
 // document and control predicates, so the tree carries exactly what the catalog
-// and rulesets were built from.
+// and packages were built from.
 func tree(root string, cfg *config.Config) ([]File, error) {
 	r, err := os.OpenRoot(root)
 	if err != nil {

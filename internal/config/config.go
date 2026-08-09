@@ -2,7 +2,7 @@
 // turns a tree of markdown into a buildable bundle.
 //
 // A store declares itself with bundle.yaml at its root. It names the schema its
-// documents are validated against, the rulesets file, the include and exclude
+// documents are validated against, the packages file, the include and exclude
 // patterns, and the gate. None of these are required by Quartermaster: a tree
 // with no bundle.yaml still builds, it just carries every markdown file, gates
 // nothing, and injects nothing.

@@ -7,7 +7,7 @@ import (
 
 // TestWriteReadRoundTrip builds the fixture, writes it, reads it back, and
 // checks the reconstructed bundle matches what a provider would need: same
-// digest, catalog, rulesets, and store tree.
+// digest, catalog, packages, and store tree.
 func TestWriteReadRoundTrip(t *testing.T) {
 	orig := buildFixture(t)
 
@@ -31,7 +31,7 @@ func TestWriteReadRoundTrip(t *testing.T) {
 		t.Fatalf("catalog: read %d, built %d", len(got.Catalog), len(orig.Catalog))
 	}
 	if len(got.Packages) != len(orig.Packages) {
-		t.Fatalf("rulesets: read %d, built %d", len(got.Packages), len(orig.Packages))
+		t.Fatalf("packages: read %d, built %d", len(got.Packages), len(orig.Packages))
 	}
 	if len(got.Files) != len(orig.Files) {
 		t.Fatalf("files: read %d, built %d", len(got.Files), len(orig.Files))

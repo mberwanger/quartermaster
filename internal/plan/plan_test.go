@@ -31,7 +31,7 @@ func TestCompute(t *testing.T) {
 		t.Fatalf("compute: %v", err)
 	}
 
-	// eng.logging (scoped in both rulesets) and eng.errors (resident) dedup to
+	// eng.logging (scoped in both packages) and eng.errors (resident) dedup to
 	// two docs.
 	if len(r.Docs) != 2 {
 		t.Fatalf("docs = %d, want 2", len(r.Docs))
@@ -69,7 +69,7 @@ func TestCompute(t *testing.T) {
 	}
 }
 
-func TestComputeUnknownRulesetFails(t *testing.T) {
+func TestComputeUnknownPackageFails(t *testing.T) {
 	store, _ := filepath.Abs("../bundle/testdata/store")
 	dir := t.TempDir()
 	writeManifest(t, dir, "bundles:\n"+

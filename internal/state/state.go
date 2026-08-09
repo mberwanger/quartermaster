@@ -1,7 +1,7 @@
 // Package state records what the last sync produced, so a later run can prune
 // files it no longer produces and a verify can run without re-resolving.
 //
-// Without this record, removing a ruleset from the manifest would leave its
+// Without this record, removing a package from the manifest would leave its
 // rules materialized forever: the generated files are gitignored, so git never
 // deletes them, and nothing else knows they were ours.
 package state

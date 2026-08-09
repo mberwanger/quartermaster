@@ -102,8 +102,8 @@ func Run(root string, cfg *config.Config) (Result, error) {
 		// store, which is the point: a team adds the fields it wants and
 		// Quartermaster does not care. But a store that drops id from its own
 		// required list would validate clean and then fail far away, when a
-		// ruleset resolves to nothing or a catalog fills with empty keys.
-		// Everything downstream joins on this: rulesets reference documents by
+		// package resolves to nothing or a catalog fills with empty keys.
+		// Everything downstream joins on this: packages reference documents by
 		// id, the usage log records it, and a facet cites it months later.
 		//
 		// So the schema is checked against the store's rules, and this is checked

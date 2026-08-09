@@ -1,9 +1,10 @@
 // Package pack reads the named selections a bundle compiles, and resolves them
 // against the store.
 //
-// A package is a named selection of rules, skills, and agents. It contains no
-// prose, so deleting every package removes injection and removes no knowledge:
-// the documents stay in the retrievable tree either way.
+// A package is a named selection of rules and capabilities, a capability being a
+// skill or an agent. It contains no prose, so deleting every package removes
+// injection and removes no knowledge: the documents stay in the retrievable tree
+// either way.
 //
 // One name is what a repository asks for. That indirection is the point. A team
 // with thirty skills lists them once here rather than in every repository that
@@ -14,7 +15,7 @@
 // Selections are patterns. A plain id is a pattern with no wildcard, so there is
 // one rule rather than two, and `skills.data.*` selects a team's whole set
 // without naming its members. Patterns match against ids because ids are the
-// interface everywhere else in the tool: rulesets referenced them, manifests
+// interface everywhere else in the tool: packages reference them, manifests
 // name them, and a facet record cites one months later.
 package pack
 

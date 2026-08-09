@@ -57,9 +57,15 @@ A **bundle** is a snapshot of a store — markdown with frontmatter — addresse
 a content digest, so a given digest always means the same bytes.
 
 A **package** is a named selection — shaped by team or topic, like `engineering` or
-`data-engineering` — carrying the rules, skills, and agents that belong together. It holds
+`data-engineering` — carrying the rules and capabilities that belong together. It holds
 no content of its own; choosing a package decides what your repository is given without
 asking, and the documents are in the bundle either way.
+
+A **capability** is a skill or an agent. A skill loads instructions on demand, when the
+work matches what its description says it is for; an agent delegates work with its own
+tools, model, and permissions. Both are reached for by the agent when they apply, which is
+what separates them from a rule — a rule is pushed, whether it turns out to be needed or
+not.
 
 Selections are patterns, so a team's skills are `skills.data.*` rather than a list, and
 adding one reaches every package that globs it without editing any of them.

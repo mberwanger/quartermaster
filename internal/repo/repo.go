@@ -3,7 +3,7 @@
 //
 // Materialized output is gitignored, so git does not update it when a branch is
 // switched or pulled. A branch that pins a different digest or changes the
-// ruleset list leaves the rules stale with no visible signal. The hooks close
+// package list leaves the rules stale with no visible signal. The hooks close
 // that gap by running a sync after checkout and after merge.
 package repo
 

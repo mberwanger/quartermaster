@@ -8,7 +8,7 @@ import (
 	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
-// buildWith runs a build against the fixture with an explicit ruleset file and
+// buildWith runs a build against the fixture with an explicit package file and
 // config, which is how the no-requirements cases are exercised.
 func buildWith(t *testing.T, cfg *config.Config, rs pack.File) (*Bundle, error) {
 	t.Helper()
@@ -16,7 +16,7 @@ func buildWith(t *testing.T, cfg *config.Config, rs pack.File) (*Bundle, error) 
 }
 
 // A store may decline to state any requirements. Everything then qualifies, and
-// a ruleset can name a draft — the author opted out of the guard knowingly.
+// a package can name a draft — the author opted out of the guard knowingly.
 func TestNoRequirementsAllowsDraft(t *testing.T) {
 	cfg := &config.Config{Include: []string{"**/*.md"}, Exclude: []string{"meta/templates/**"}}
 	rs := pack.File{"core": {Rules: []pack.Ref{{ID: "eng.draft"}}}}
@@ -26,13 +26,13 @@ func TestNoRequirementsAllowsDraft(t *testing.T) {
 		t.Fatalf("build with no requirements: %v", err)
 	}
 	if len(b.Packages) != 1 || len(b.Packages[0].Rules) != 1 {
-		t.Fatalf("rulesets = %+v, want one ruleset with one doc", b.Packages)
+		t.Fatalf("packages = %+v, want one package with one doc", b.Packages)
 	}
 }
 
 // Visibility is not negotiable: even with no requirements declared, a restricted
 // document cannot be shipped as a rule. Otherwise the bundle would carry a
-// ruleset pointing at a file it does not contain.
+// package pointing at a file it does not contain.
 func TestNoRequirementsStillBlocksRestricted(t *testing.T) {
 	cfg := &config.Config{Include: []string{"**/*.md"}, Exclude: []string{"meta/templates/**"}}
 	rs := pack.File{"core": {Rules: []pack.Ref{{ID: "eng.secret"}}}}
@@ -46,9 +46,9 @@ func TestNoRequirementsStillBlocksRestricted(t *testing.T) {
 	}
 }
 
-// The compiled ruleset must never reference a path the bundle does not carry;
+// The compiled package must never reference a path the bundle does not carry;
 // that invariant is what the restricted check protects.
-func TestCompiledRulesetsResolveToCarriedFiles(t *testing.T) {
+func TestCompiledPackagesResolveToCarriedFiles(t *testing.T) {
 	b := buildFixture(t)
 
 	carried := make(map[string]bool, len(b.Files))
@@ -59,7 +59,7 @@ func TestCompiledRulesetsResolveToCarriedFiles(t *testing.T) {
 	for _, rs := range b.Packages {
 		for _, d := range rs.Rules {
 			if !carried[d.Path] {
-				t.Fatalf("ruleset %q references %s, which the bundle does not carry", rs.Name, d.Path)
+				t.Fatalf("package %q references %s, which the bundle does not carry", rs.Name, d.Path)
 			}
 		}
 	}

@@ -1,7 +1,7 @@
 // Package plan computes what a sync would materialize, without writing anything.
 //
 // It is the one implementation of the consumer pipeline: resolve the manifest's
-// bundles, select the named rulesets, render the targets, and return the full
+// bundles, select the named packages, render the targets, and return the full
 // set of output files. qm sync writes and prunes what plan produces; qm verify
 // diffs it against the working tree; qm status reports it. Sharing one
 // implementation is what keeps those three commands from disagreeing about what
