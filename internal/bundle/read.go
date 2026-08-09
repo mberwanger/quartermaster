@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -30,13 +32,17 @@ func Read(dir string) (*Bundle, error) {
 	if err := readJSON(fsys, MetaName, &b.Meta); err != nil {
 		return nil, err
 	}
+	if err := checkFormat(b.Meta.Format); err != nil {
+		return nil, err
+	}
 	if err := readJSON(fsys, CatalogName, &b.Catalog); err != nil {
 		return nil, err
 	}
-	// packages.json is absent in an older bundle; treat that as no packages
-	// rather than an error, so the failure is "this bundle offers nothing"
-	// rather than an unreadable artifact.
-	if err := readJSON(fsys, PackagesName, &b.Packages); err != nil && !os.IsNotExist(err) {
+	// Write always emits packages.json, so past the format check its absence
+	// means a damaged artifact rather than a bundle that offers nothing. Reading
+	// it as no packages would sync a repository to an empty set and call that
+	// success, which is the failure checkFormat exists to prevent.
+	if err := readJSON(fsys, PackagesName, &b.Packages); err != nil {
 		return nil, err
 	}
 
@@ -50,6 +56,59 @@ func Read(dir string) (*Bundle, error) {
 	}
 
 	return b, nil
+}
+
+// formatVersion matches the major.minor form the artifact format declares.
+var formatVersion = regexp.MustCompile(`^(\d+)\.(\d+)$`)
+
+// checkFormat rejects an artifact this build cannot read.
+//
+// The match is exact, because before 1.0 a minor bump is allowed to change the
+// layout and 0.3 to 0.4 did exactly that: it replaced rulesets.json with
+// packages.json. Accepting a near miss is how a reader ends up returning
+// something structurally valid and semantically empty.
+//
+// That was the behavior until this check existed. Nothing compared the declared
+// format to the one this build writes, so reading an artifact whose layout had
+// moved found no file where it looked, reported no error, and handed back a
+// bundle with nothing in it. A repository would sync to an empty set and be told
+// it had worked. The direction of the mismatch decides who can fix it, so the
+// message says which way it went rather than only that it happened.
+func checkFormat(declared string) error {
+	if declared == Version {
+		return nil
+	}
+	if declared == "" {
+		return fmt.Errorf("artifact declares no format version; qm writes %s, so this was not built by qm bundle build", Version)
+	}
+
+	m := formatVersion.FindStringSubmatch(declared)
+	if m == nil {
+		return fmt.Errorf("artifact declares format %q, which is not a major.minor version; qm reads %s", declared, Version)
+	}
+
+	if newer(m, Version) {
+		return fmt.Errorf("artifact is format %s and this qm reads %s; upgrade qm", declared, Version)
+	}
+	return fmt.Errorf("artifact is format %s and this qm reads %s; rebuild it with qm bundle build", declared, Version)
+}
+
+// newer reports whether a parsed major.minor is ahead of the current version,
+// which is what separates "upgrade the tool" from "rebuild the artifact".
+func newer(declared []string, current string) bool {
+	cur := formatVersion.FindStringSubmatch(current)
+	if cur == nil {
+		return false
+	}
+	dMajor, _ := strconv.Atoi(declared[1])
+	dMinor, _ := strconv.Atoi(declared[2])
+	cMajor, _ := strconv.Atoi(cur[1])
+	cMinor, _ := strconv.Atoi(cur[2])
+
+	if dMajor != cMajor {
+		return dMajor > cMajor
+	}
+	return dMinor > cMinor
 }
 
 // readTree reads every file under a subdirectory, returning paths relative to
