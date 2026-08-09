@@ -4,8 +4,7 @@ title: Versioning a public API
 description: Add fields, never repurpose them. A breaking change needs a new version, and the old one stays until its consumers are gone.
 domain: engineering
 type: policy
-status: active
-provenance: decided
+status: stable
 owner: platform
 tags: [api, compatibility]
 ---

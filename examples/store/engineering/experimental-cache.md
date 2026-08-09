@@ -5,7 +5,6 @@ description: An unfinished proposal, kept in the store so the thinking is not lo
 domain: engineering
 type: concept
 status: draft
-provenance: asserted
 owner: platform
 tags: [go, performance]
 ---
@@ -15,17 +14,16 @@ tags: [go, performance]
 This document exists to show what a draft does in this model.
 
 It **is** distributed: it lands in `.qm/knowledge/` like everything
-else, and an agent that goes looking will find it — with `status: draft` and
-`provenance: asserted` at the top, so the uncertainty travels with the claim.
+else, and an agent that goes looking will find it — with `status: draft` at the
+top, so the uncertainty travels with the claim.
 
 It **cannot** become a rule. `requires` in `bundle.yaml` asks for `status:
-active` and a provenance of `verified` or `decided`. Naming this id in a package
-fails the build rather than quietly loading an unfinished idea into every
-session:
+stable`. Naming this id in a package fails the build rather than quietly loading
+an unfinished idea into every session:
 
 ```
-package "engineering" references "eng.experimental-cache", which does not meet
-the requirements: status is "draft", requires one of: active
+package "engineering" selects "eng.experimental-cache" as rules, which it
+cannot be: status is "draft", requires one of: stable
 ```
 
 Try it with `qm bundle explain eng.experimental-cache`.

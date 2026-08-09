@@ -68,14 +68,14 @@ Everything else, and more of the tool than the table suggests.
 
 **Which fields decide eligibility.** `requires:` in `bundle.yaml` names the
 fields a document must satisfy before a package may turn it into a rule. The
-fields are yours: Admiral's store gates on `status`, `provenance`, and
-`visibility`, but nothing in the tool knows those names. An omitted or empty
-`requires:` means everything qualifies.
+fields are yours: a scaffolded store gates on `status` and `visibility`, but
+nothing in the tool knows those names. An omitted or empty `requires:` means
+everything qualifies.
 
 **What counts as a skill.** The `skills:` gate is an ordinary field predicate.
 `type: [skill]` is a convention, not a rule.
 
-**Any field you like.** `domain`, `owner`, `tags`, `last_verified`. Quartermaster
+**Any field you like.** `domain`, `owner`, `tags`, `stale_after`. Quartermaster
 carries them through into the catalog untouched, and a consuming repository can
 filter its knowledge tree on any of them.
 

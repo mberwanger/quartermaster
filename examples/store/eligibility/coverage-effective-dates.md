@@ -4,8 +4,7 @@ title: Coverage effective dates
 description: Coverage is a half-open interval in the member's local date, and a claim is judged against the date of service rather than the date of submission.
 domain: eligibility
 type: policy
-status: active
-provenance: decided
+status: stable
 owner: eligibility
 tags: [dates, correctness]
 ---

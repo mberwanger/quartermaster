@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,6 +107,60 @@ func TestScaffoldValidates(t *testing.T) {
 	}
 	if res.Checked == 0 {
 		t.Fatal("expected the scaffold to include at least the template document")
+	}
+}
+
+// The scaffold ships two files that have to agree and are edited separately: the
+// schema says which status values a document may declare, and bundle.yaml says
+// which of them may become a rule. Nothing else notices when they drift, because
+// a store whose gate names a status the schema forbids still validates: every
+// document is well-formed, and none of them can ever be promoted. That is how
+// the scaffold spent a release asking for "active" while its own schema had
+// moved to draft, stable, and deprecated.
+func TestScaffoldGateAdmitsAStatusTheSchemaAllows(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Write(dir, "my-store"); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, "meta", "frontmatter.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema struct {
+		Properties struct {
+			Status struct {
+				Enum []string `json:"enum"`
+			} `json:"status"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if len(schema.Properties.Status.Enum) == 0 {
+		t.Fatal("the scaffold schema constrains no status values, so the gate cannot be checked against it")
+	}
+
+	var admitted []string
+	for _, status := range schema.Properties.Status.Enum {
+		if ok, _ := cfg.Requires.Allows(map[string]any{"status": status}); ok {
+			admitted = append(admitted, status)
+		}
+	}
+	if len(admitted) == 0 {
+		t.Fatalf("no status the schema allows (%v) passes the scaffold's requires gate; nothing could ever become a rule",
+			schema.Properties.Status.Enum)
+	}
+
+	// A draft is distributed and readable, and never loads on its own. That is
+	// the one promise the scaffold's comments make about the gate.
+	if ok, _ := cfg.Requires.Allows(map[string]any{"status": "draft"}); ok {
+		t.Error("the scaffold's gate promotes a draft, which its own template document is")
 	}
 }
 

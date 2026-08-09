@@ -4,8 +4,7 @@ title: Error wrapping
 description: Wrap errors with context using %w so callers can match them.
 domain: engineering
 type: concept
-status: active
-provenance: decided
+status: stable
 owner: platform
 tags: [go]
 ---

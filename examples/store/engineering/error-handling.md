@@ -4,14 +4,14 @@ title: Wrapping and inspecting errors
 description: Wrap with %w and a clause naming the operation. Match with errors.Is and errors.As, never on message text.
 domain: engineering
 type: reference
-status: active
-provenance: verified
+status: stable
 owner: platform
 scope: ["**/*.go"]
 tags: [go, errors]
 sources:
-  - repo: example-service
-    path: internal/store/store.go
+  - id: store
+    resource: example-service/internal/store/store.go
+    title: Error wrapping at the store boundary
 ---
 
 # Wrapping and inspecting errors

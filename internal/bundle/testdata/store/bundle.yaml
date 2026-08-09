@@ -4,6 +4,5 @@ packages: meta/packages.yaml
 include: ["**/*.md"]
 exclude: ["meta/conventions.md", "meta/templates/**"]
 requires:
-  status: [active]
-  provenance: [verified, decided]
+  status: [stable]
   visibility: { not: [restricted] }

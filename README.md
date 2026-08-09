@@ -78,8 +78,7 @@ Which documents are *allowed* to become rules is declared once, in the store's
 
 ```yaml
 requires:
-  status: [active]
-  provenance: [verified, decided]
+  status: [stable]
 ```
 
 A draft can't be pulled in by naming it in a package — the build fails and tells you which

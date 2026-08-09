@@ -4,8 +4,7 @@ title: Structured logging
 description: Log as structured key-value pairs, never interpolated strings.
 domain: engineering
 type: concept
-status: active
-provenance: verified
+status: stable
 owner: platform
 scope: ["**/*.go"]
 tags: [go, observability]

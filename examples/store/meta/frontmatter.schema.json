@@ -1,45 +1,125 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/frontmatter.schema.json",
-  "title": "Example knowledge doc frontmatter",
+  "title": "Quartermaster OKF document profile",
   "type": "object",
-  "required": ["id", "title", "description", "domain", "type", "status", "provenance", "owner"],
-  "additionalProperties": false,
+  "required": ["id", "title", "description", "type", "status"],
+  "additionalProperties": true,
   "properties": {
     "id": { "type": "string", "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$" },
     "title": { "type": "string", "minLength": 1 },
     "description": { "type": "string", "minLength": 1, "maxLength": 320 },
-    "domain": { "enum": ["engineering", "billing", "eligibility", "product"] },
-    "type": { "enum": ["concept", "reference", "runbook", "decision", "guide", "policy", "strategy"] },
-    "status": { "enum": ["active", "draft", "deprecated", "superseded"] },
-    "provenance": { "enum": ["verified", "decided", "asserted"] },
+    "type": { "type": "string", "minLength": 1 },
+    "resource": { "type": "string", "minLength": 1 },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "usage_window": { "$ref": "#/$defs/usageWindow" },
+    "generated": { "$ref": "#/$defs/generated" },
+    "verified": {
+      "oneOf": [
+        { "$ref": "#/$defs/verificationEvent" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/verificationEvent" }
+        }
+      ]
+    },
+    "status": { "enum": ["draft", "stable", "deprecated"] },
+    "stale_after": { "type": "string", "format": "date" },
+    "domain": { "type": "string", "minLength": 1 },
     "owner": { "type": "string", "minLength": 1 },
-    "created": { "type": "string", "format": "date" },
-    "last_verified": { "type": "string", "format": "date" },
     "scope": { "type": "array", "items": { "type": "string" } },
-    "tags": { "type": "array", "items": { "type": "string" } },
-    "capability": { "type": "string" },
-    "related": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$" } },
     "supersedes": { "type": "array", "items": { "type": "string" } },
     "superseded_by": { "type": ["string", "null"] },
     "visibility": { "enum": ["internal", "restricted"] },
-    "sources": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "repo": { "type": "string" },
-          "path": { "type": "string" },
-          "url": { "type": "string", "format": "uri" }
-        }
+    "skill": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "allowed-tools": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "tools": { "type": "array", "items": { "type": "string" } },
+        "model": { "type": "string" },
+        "effort": { "enum": ["low", "medium", "high", "xhigh", "max"] },
+        "color": { "type": "string" },
+        "permission-mode": { "enum": ["default", "acceptEdits", "plan"] }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "type": { "enum": ["reference", "runbook"] } } },
-      "then": { "required": ["sources"], "properties": { "sources": { "minItems": 1 } } }
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "const": "skill" } }
+      },
+      "then": { "required": ["skill"] }
+    },
+    {
+      "if": {
+        "required": ["type"],
+        "properties": { "type": { "const": "agent" } }
+      },
+      "then": { "required": ["agent"] }
     }
-  ]
+  ],
+  "$defs": {
+    "usageWindow": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": true,
+      "properties": {
+        "from": { "type": "string", "format": "date" },
+        "to": { "type": "string", "format": "date" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["resource"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "resource": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 },
+        "usage_count": { "type": "integer", "minimum": 0 },
+        "last_modified": { "type": "string", "format": "date" },
+        "usage_window": { "$ref": "#/$defs/usageWindow" }
+      }
+    },
+    "generated": {
+      "type": "object",
+      "required": ["by"],
+      "additionalProperties": true,
+      "properties": {
+        "by": { "type": "string", "minLength": 1 },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "verificationEvent": {
+      "type": "object",
+      "required": ["by", "at"],
+      "additionalProperties": true,
+      "properties": {
+        "by": { "type": "string", "minLength": 1 },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
 }

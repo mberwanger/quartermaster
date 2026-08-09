@@ -4,14 +4,14 @@ title: Structured logging
 description: Log key-value pairs, never interpolated prose. Log the identifiers that let someone find the record, never the record itself.
 domain: engineering
 type: reference
-status: active
-provenance: verified
+status: stable
 owner: platform
 scope: ["**/*.go"]
 tags: [go, observability]
 sources:
-  - repo: example-service
-    path: internal/obs/log.go
+  - id: log
+    resource: example-service/internal/obs/log.go
+    title: Structured logger setup
 ---
 
 # Structured logging
