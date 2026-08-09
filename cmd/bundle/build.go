@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mberwanger/quartermaster/internal/bundle"
+	bundlepkg "github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/preflight"
 )
 
@@ -49,7 +49,7 @@ build.`,
 			}
 			builtBundle := preflightResult.Bundle
 
-			if err := bundle.Write(builtBundle, v.out); err != nil {
+			if err := bundlepkg.Write(builtBundle, v.out); err != nil {
 				return err
 			}
 

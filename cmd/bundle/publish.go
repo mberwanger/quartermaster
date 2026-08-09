@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cobra"
 
-	"github.com/mberwanger/quartermaster/internal/bundle"
+	bundlepkg "github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/oci"
 )
 
@@ -56,7 +56,7 @@ func (v *publishCmd) run(out io.Writer) error {
 
 	// Reading the bundle first proves the directory really holds one, and gives
 	// the provenance the annotations carry.
-	b, err := bundle.Read(v.dir)
+	b, err := bundlepkg.Read(v.dir)
 	if err != nil {
 		return fmt.Errorf("read bundle at %s: %w", v.dir, err)
 	}
@@ -104,7 +104,7 @@ func (v *publishCmd) run(out io.Writer) error {
 	return err
 }
 
-func packageNames(b *bundle.Bundle) string {
+func packageNames(b *bundlepkg.Bundle) string {
 	names := make([]string, 0, len(b.Packages))
 	for _, compiledPackage := range b.Packages {
 		names = append(names, compiledPackage.Name)

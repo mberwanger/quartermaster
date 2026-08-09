@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"errors"
@@ -68,7 +68,10 @@ func (v *indexCmd) run(out io.Writer) error {
 		if len(changed) > 0 {
 			fmt.Fprintf(&b, "\n%d listing(s) out of date; run qm bundle index\n", len(changed))
 			_, _ = io.WriteString(out, b.String())
-			return &exitError{err: errors.New("listings are stale"), code: 1}
+			// A plain error, not an explicit code: the root command already
+			// exits 1 on any error, which is the signal --check exists to give
+			// CI. Reaching for exitError here would only restate the default.
+			return errors.New("listings are stale")
 		}
 		fmt.Fprintf(&b, "ok: every listing is current\n")
 		_, err = io.WriteString(out, b.String())

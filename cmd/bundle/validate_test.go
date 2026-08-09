@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 
 // storeFixture is a small store known to validate and build cleanly, shared by
 // every cmd-level test that needs a real store rather than a scaffolded one.
-const storeFixture = "../internal/bundle/testdata/store"
+const storeFixture = "../../internal/bundle/testdata/store"
 
 func copyStoreFixture(t *testing.T) string {
 	t.Helper()
@@ -77,7 +77,7 @@ func TestBuildReturnsValidationErrorUnwrapped(t *testing.T) {
 
 func TestBundleInitReturnsValidationErrorUnwrapped(t *testing.T) {
 	storeRoot := filepath.Join(t.TempDir(), "new-store")
-	command := newBundleInitCmd()
+	command := newInitCmd()
 	command.root = storeRoot
 	command.name = "new-store"
 	if err := command.run(&bytes.Buffer{}); err != nil {

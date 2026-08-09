@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestBundleRejectsUnknownSubcommand(t *testing.T) {
-	command := newBundleCmd().cmd
+	command := New()
 	command.SetArgs([]string{"buidl"})
 	command.SetOut(&bytes.Buffer{})
 	command.SetErr(&bytes.Buffer{})
@@ -17,7 +17,7 @@ func TestBundleRejectsUnknownSubcommand(t *testing.T) {
 }
 
 func TestBundleWithoutSubcommandShowsHelp(t *testing.T) {
-	command := newBundleCmd().cmd
+	command := New()
 	command.SetArgs(nil)
 
 	var output bytes.Buffer

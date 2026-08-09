@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"fmt"
@@ -14,15 +14,15 @@ import (
 	"github.com/mberwanger/quartermaster/internal/scaffold"
 )
 
-type bundleInitCmd struct {
+type initCmd struct {
 	cmd   *cobra.Command
 	root  string
 	name  string
 	force bool
 }
 
-func newBundleInitCmd() *bundleInitCmd {
-	v := &bundleInitCmd{}
+func newInitCmd() *initCmd {
+	v := &initCmd{}
 
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -50,7 +50,7 @@ schema, packages, root index, and template. Other files are left untouched.`,
 	return v
 }
 
-func (v *bundleInitCmd) run(out io.Writer) error {
+func (v *initCmd) run(out io.Writer) error {
 	name := v.name
 	if name == "" {
 		abs, err := filepath.Abs(v.root)
