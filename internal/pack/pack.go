@@ -98,6 +98,35 @@ func (r *Ref) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// MatchID reports whether an id pattern covers an id.
+//
+// Ids are dot-separated and the matcher is path-shaped, so the separator is
+// translated rather than reimplemented. A single star then stops at a segment
+// boundary and a double star crosses it, which is the behavior anyone who has
+// written a glob expects.
+func MatchID(pattern, id string) (bool, error) {
+	return doublestar.Match(strings.ReplaceAll(pattern, ".", "/"), strings.ReplaceAll(id, ".", "/"))
+}
+
+// Matches reports whether this selection covers one document, by id pattern or
+// by predicate over its frontmatter.
+//
+// Compilation does not call this, because it walks every id once per selection
+// and needs to say which pattern matched nothing. This answers the same question
+// for one document, which is what explaining a single id needs, and it lives
+// here so the two can only ever agree about what a selection means.
+func (r Ref) Matches(id string, frontmatter map[string]any) bool {
+	if !r.Where.Empty() {
+		ok, _ := r.Where.Allows(frontmatter)
+		return ok
+	}
+	if r.ID == id {
+		return true
+	}
+	ok, err := MatchID(r.ID, id)
+	return err == nil && ok
+}
+
 // Load reads and parses a packages file.
 //
 // A missing file is an error rather than an empty set. This is only ever called
@@ -271,11 +300,7 @@ func match(pkg string, kind Kind, ref Ref, byID map[string]doc.Doc, ids []string
 
 	default:
 		for _, id := range ids {
-			// Ids are dot-separated and the matcher is path-shaped, so the
-			// separator is translated rather than reimplemented. A single star
-			// then stops at a segment boundary and a double star crosses it,
-			// which is the behavior anyone who has written a glob expects.
-			ok, err := doublestar.Match(strings.ReplaceAll(ref.ID, ".", "/"), strings.ReplaceAll(id, ".", "/"))
+			ok, err := MatchID(ref.ID, id)
 			if err != nil {
 				return nil, false, fmt.Errorf("package %q has an unreadable %s pattern %q: %w", pkg, kind, ref.ID, err)
 			}
