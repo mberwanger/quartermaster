@@ -166,13 +166,10 @@ func Build(opts Options) (*Bundle, error) {
 	// enforced there rather than left to the declared requirements: a store that
 	// omits visibility from requires, or declares none at all, must still not be
 	// able to ship one.
-	skillDirSet, skillPathSet := opts.Config.SkillDirs(docs)
-	_ = skillDirSet
-	_ = skillPathSet
 	compiled, err := pack.Compile(opts.Packages, docs, pack.Options{
 		Requires: opts.Config.Requires,
-		IsSkill:  func(d doc.Doc) bool { ok, _ := opts.Config.Skills.Allows(d.Frontmatter); return ok },
-		IsAgent:  func(d doc.Doc) bool { _, ok := d.Frontmatter["agent"].(map[string]any); return ok },
+		IsSkill:  opts.Config.IsSkill,
+		IsAgent:  opts.Config.IsAgent,
 	})
 	if err != nil {
 		return nil, err

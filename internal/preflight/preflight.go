@@ -4,7 +4,6 @@ package preflight
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
@@ -57,7 +56,7 @@ func Run(options Options) (*Result, error) {
 		return nil, &ValidationError{Result: validationResult}
 	}
 
-	packages, err := loadPackages(options.Root, storeConfig)
+	packages, err := pack.Load(options.Root, storeConfig.Packages)
 	if err != nil {
 		return nil, err
 	}
@@ -77,11 +76,4 @@ func Run(options Options) (*Result, error) {
 		Bundle:     compiledBundle,
 		Validation: validationResult,
 	}, nil
-}
-
-func loadPackages(root string, storeConfig *config.Config) (pack.File, error) {
-	if storeConfig.Packages == "" {
-		return pack.File{}, nil
-	}
-	return pack.Load(filepath.Join(root, storeConfig.Packages))
 }

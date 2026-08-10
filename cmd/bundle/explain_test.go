@@ -22,10 +22,6 @@ func explainFixture(t *testing.T) string {
 	t.Helper()
 	root := copyStoreFixture(t)
 
-	// The base store declares no skills gate, which would let anything be
-	// selected as a skill and make the test prove nothing.
-	appendTo(t, filepath.Join(root, "bundle.yaml"), "skills:\n  type: [skill]\n")
-
 	// Each skill gets its own directory. A skill is a directory rather than a
 	// file, so anything sitting beside one is an asset and not a document of its
 	// own, which would quietly remove the agent from this fixture.
@@ -47,7 +43,7 @@ skill:
 	writeDoc(t, root, "capabilities/skills/draft-review/skill.md", `---
 id: skills.draft-review
 title: Review a diff, unfinished
-description: An unfinished skill, kept to prove the rule gate does not govern skills.
+description: An unfinished skill, kept to prove the gate governs skills too.
 type: skill
 status: draft
 skill:
@@ -272,7 +268,7 @@ func TestExplainAgreesWithTheCompiler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	packages, err := loadPackages(root, cfg)
+	packages, err := pack.Load(root, cfg.Packages)
 	if err != nil {
 		t.Fatal(err)
 	}

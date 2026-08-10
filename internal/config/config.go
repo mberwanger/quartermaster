@@ -45,14 +45,51 @@ type Config struct {
 	Controls []string `yaml:"controls"`
 	// Requires is what a document must be to become a rule.
 	Requires gate.Gate `yaml:"requires"`
-	// Skills identifies which documents are skills. A skill is a directory
-	// rather than a file: everything beside the skill document travels with it
-	// as an asset and needs no frontmatter of its own, because a skill is a unit
-	// an agent loads whole rather than a topic it reads.
+	// Skills and Agents override how a capability is recognized. Both default to
+	// the document's type, so a store declares neither unless its vocabulary
+	// differs from the obvious one.
 	//
-	// It is a predicate rather than a path glob, so a store says what a skill is
-	// in its own vocabulary, the same way it says what may become a rule.
+	// They are predicates rather than path globs, so a store that does need to
+	// override says what a skill is in its own vocabulary, the same way it says
+	// what may become a rule.
 	Skills gate.Gate `yaml:"skills"`
+	Agents gate.Gate `yaml:"agents"`
+}
+
+// Capability types a document declares to be recognized as one without the store
+// overriding anything. They are Quartermaster's, not the standard's: OKF leaves
+// type open, and these are the two values the tool acts on.
+const (
+	TypeSkill = "skill"
+	TypeAgent = "agent"
+)
+
+// IsSkill reports whether a document is a skill, and IsAgent whether it is an
+// agent.
+//
+// The type decides it unless the store says otherwise. Type is the one field the
+// standard requires, so it is always there; it is what a person reads to know
+// what a document is, and what the generated listings group by. A block cannot
+// serve the same purpose, because a store may leave it out entirely once nothing
+// inside it is mandatory.
+//
+// Defaulting matters more than the symmetry. An absent gate used to be an empty
+// gate, and an empty gate admits everything, so a store that simply never
+// declared skills: could have any document selected as a skill, while the files
+// beside a real skill were held to the frontmatter rule instead of travelling as
+// its assets. The default was permissive exactly where it should have been
+// strict and strict exactly where it should have been permissive.
+func (c *Config) IsSkill(d doc.Doc) bool { return recognized(c.Skills, d, TypeSkill) }
+
+// IsAgent reports whether a document is an agent. See IsSkill.
+func (c *Config) IsAgent(d doc.Doc) bool { return recognized(c.Agents, d, TypeAgent) }
+
+func recognized(override gate.Gate, d doc.Doc, defaultType string) bool {
+	if !override.Empty() {
+		ok, _ := override.Allows(d.Frontmatter)
+		return ok
+	}
+	return d.Str("type") == defaultType
 }
 
 // SkillDirs returns the directory of every skill document, which is what makes
@@ -60,14 +97,11 @@ type Config struct {
 // returned too, so a caller can tell a skill from its own asset.
 func (c *Config) SkillDirs(docs []doc.Doc) (dirs, skillPaths map[string]bool) {
 	dirs, skillPaths = map[string]bool{}, map[string]bool{}
-	if c.Skills.Empty() {
-		return dirs, skillPaths
-	}
 	for _, d := range docs {
 		if d.Frontmatter == nil {
 			continue
 		}
-		if ok, _ := c.Skills.Allows(d.Frontmatter); ok {
+		if c.IsSkill(d) {
 			dirs[path.Dir(d.Path)] = true
 			skillPaths[d.Path] = true
 		}

@@ -72,7 +72,7 @@ func (v *explainCmd) run(out io.Writer, id string) error {
 		return fmt.Errorf("no document has id %q under %s", id, v.root)
 	}
 
-	packages, err := loadPackages(v.root, cfg)
+	packages, err := pack.Load(v.root, cfg.Packages)
 	if err != nil {
 		return err
 	}
@@ -150,11 +150,11 @@ func qualifies(cfg *config.Config, kind pack.Kind, d *doc.Doc, allowed bool, rea
 	}
 	switch kind {
 	case pack.KindSkill:
-		if ok, _ := cfg.Skills.Allows(d.Frontmatter); !ok {
+		if !cfg.IsSkill(*d) {
 			return false, "it is not a skill"
 		}
 	case pack.KindAgent:
-		if _, ok := d.Frontmatter["agent"].(map[string]any); !ok {
+		if !cfg.IsAgent(*d) {
 			return false, "it is not an agent"
 		}
 	}
@@ -180,13 +180,6 @@ func article(kind pack.Kind) string {
 		return "an agent"
 	}
 	return string(kind)
-}
-
-func loadPackages(root string, cfg *config.Config) (pack.File, error) {
-	if cfg.Packages == "" {
-		return pack.File{}, nil
-	}
-	return pack.Load(filepath.Join(root, cfg.Packages))
 }
 
 // selection is the packages that select a document as one kind. A document is

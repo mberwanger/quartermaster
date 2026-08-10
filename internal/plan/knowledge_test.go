@@ -139,14 +139,6 @@ func storeWithACapability(t *testing.T) string {
 		"agent:\n  tools: [Read]\n---\n\n# Reviewer\n")
 	write("meta/packages.yaml", "capable:\n  skills:\n    - skills.review\n  agents:\n    - agents.reviewer\n")
 
-	body, err := os.ReadFile(filepath.Join(root, "bundle.yaml")) //nolint:gosec // a fixture this test built
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "bundle.yaml"),
-		append(body, []byte("\nskills:\n  type: [skill]\n")...), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	return root
 }
 

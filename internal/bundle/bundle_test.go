@@ -19,7 +19,7 @@ func buildFixture(t *testing.T) *Bundle {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	rs, err := pack.Load(filepath.Join(fixture, cfg.Packages))
+	rs, err := pack.Load(fixture, cfg.Packages)
 	if err != nil {
 		t.Fatalf("load packages: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestBuildPropagatesRootOKFVersion(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load config: %v", err)
 			}
-			packages, err := pack.Load(filepath.Join(storeRoot, cfg.Packages))
+			packages, err := pack.Load(storeRoot, cfg.Packages)
 			if err != nil {
 				t.Fatalf("load packages: %v", err)
 			}
