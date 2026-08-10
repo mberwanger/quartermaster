@@ -38,8 +38,8 @@ func TestBundleInitCreatesCurrentStore(t *testing.T) {
 	if !strings.HasPrefix(string(rootIndex), wantFrontmatter) {
 		t.Fatalf("root index does not declare the current OKF version %q:\n%s", index.CurrentOKFVersion, rootIndex)
 	}
-	if !strings.Contains(output.String(), "preflight passes") {
-		t.Fatalf("output does not report preflight success:\n%s", output.String())
+	if !strings.Contains(output.String(), "store compiles") {
+		t.Fatalf("output does not report that the scaffolded store compiles:\n%s", output.String())
 	}
 }
 

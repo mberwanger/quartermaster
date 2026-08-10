@@ -43,6 +43,25 @@ func (r Result) OK() bool {
 	return len(r.Findings) == 0
 }
 
+// Error reports findings that make a store invalid, and so stop it compiling.
+//
+// It carries the whole result rather than the first finding, because a person
+// fixing a store wants every problem at once: findings are independent, and
+// reporting them one build at a time turns one pass into five.
+type Error struct {
+	Result Result
+}
+
+func (e *Error) Error() string {
+	var report strings.Builder
+	for _, finding := range e.Result.Findings {
+		fmt.Fprintf(&report, "%s: %s\n", finding.Path, finding.Message)
+	}
+	fmt.Fprintf(&report, "\n%d finding(s) across %d checked doc(s)",
+		len(e.Result.Findings), e.Result.Checked)
+	return report.String()
+}
+
 // outputSkip keeps validation from reading a previous build's output.
 var outputSkip = []string{"dist"}
 

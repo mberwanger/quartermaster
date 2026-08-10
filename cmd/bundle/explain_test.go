@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	bundlepkg "github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/config"
 	"github.com/mberwanger/quartermaster/internal/doc"
 	"github.com/mberwanger/quartermaster/internal/pack"
-	"github.com/mberwanger/quartermaster/internal/preflight"
 )
 
 // explainFixture is a store carrying one document of each kind, plus a draft
@@ -191,7 +191,7 @@ func TestExplainReportsACapabilityTheGateRejects(t *testing.T) {
 	}
 
 	// And the claim is checked against the thing that decides it.
-	_, err := preflight.Run(preflight.Options{Root: root})
+	_, err := bundlepkg.Compile(root, bundlepkg.Source{})
 	if err == nil {
 		t.Fatal("the compiler accepted a draft skill that explain says it refuses")
 	}
@@ -217,7 +217,7 @@ func TestExplainDistinguishesASkippedMatchFromAFailedBuild(t *testing.T) {
 	}
 
 	// The claim is checked against the compiler: this store builds.
-	if _, err := preflight.Run(preflight.Options{Root: root}); err != nil {
+	if _, err := bundlepkg.Compile(root, bundlepkg.Source{}); err != nil {
 		t.Fatalf("explain says the build survives a skipped match, but it does not: %v", err)
 	}
 }
@@ -240,13 +240,13 @@ func TestExplainSeesAPredicateSelection(t *testing.T) {
 func TestExplainAgreesWithTheCompiler(t *testing.T) {
 	root := explainFixture(t)
 
-	result, err := preflight.Run(preflight.Options{Root: root})
+	compiledBundle, err := bundlepkg.Compile(root, bundlepkg.Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	compiled := map[string]map[pack.Kind][]string{}
-	for _, c := range result.Bundle.Packages {
+	for _, c := range compiledBundle.Packages {
 		for _, sel := range []struct {
 			kind pack.Kind
 			docs []pack.Doc

@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mberwanger/quartermaster/internal/preflight"
+	bundlepkg "github.com/mberwanger/quartermaster/internal/bundle"
 )
 
 type validateCmd struct {
@@ -23,8 +23,8 @@ func newValidateCmd() *validateCmd {
 		Short: "Run every compilation check without emitting a bundle",
 		Long: `Validate a store's machine-checkable rules: frontmatter matches the
 schema, every id is unique, and every supersede link resolves to a doc that
-exists. Then compile packages, links, and agent permissions in memory using the
-same preflight as build.
+exists. Then compile packages, links, and agent permissions in memory, through
+the same build the bundle command runs.
 
 This is the pull-request gate. It emits nothing and fails when any document is
 malformed, so a reviewer only spends attention on whether the content is true,
@@ -43,7 +43,10 @@ not on whether it is well-formed.`,
 }
 
 func (v *validateCmd) run(out io.Writer) error {
-	preflightResult, err := preflight.Run(preflight.Options{Root: v.root})
+	// Validate compiles the artifact and throws it away: the check that a store
+	// is sound is that it builds, so anything less than a full compile would let
+	// validate pass a store that build then refuses.
+	compiled, err := bundlepkg.Compile(v.root, bundlepkg.Source{})
 	if err != nil {
 		// A bare return lets root.go's single "Error: %s" path render this, the
 		// same way build and bundle init already do, rather than validate
@@ -53,8 +56,7 @@ func (v *validateCmd) run(out io.Writer) error {
 	}
 
 	var report strings.Builder
-	fmt.Fprintf(&report, "ok: %d doc(s) checked, bundle compiles\n",
-		preflightResult.Validation.Checked)
+	fmt.Fprintf(&report, "ok: %d doc(s) checked, bundle compiles\n", compiled.Meta.Checked)
 	_, err = io.WriteString(out, report.String())
 	return err
 }

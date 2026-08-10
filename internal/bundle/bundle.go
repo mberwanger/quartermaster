@@ -54,6 +54,14 @@ type Meta struct {
 	Files      int    `json:"files"`
 	Packages   int    `json:"packages"`
 	Controls   int    `json:"controls"`
+	// Checked counts the documents held to the store's own schema, which is not
+	// Docs: validation covers every document the store declares, including the
+	// ones excluded from distribution, while Docs counts only what shipped. Both
+	// are provenance — how much was verified, and how much of it travels.
+	//
+	// It is set by Compile, since only a build that started from a store on disk
+	// knows it. A bundle assembled from parts leaves it zero.
+	Checked int `json:"checked"`
 	// StoreBytes is the total size of the store/ tree carried into the
 	// artifact, summed directly from the carried files.
 	StoreBytes int    `json:"store_bytes"`

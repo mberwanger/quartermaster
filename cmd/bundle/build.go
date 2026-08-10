@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	bundlepkg "github.com/mberwanger/quartermaster/internal/bundle"
-	"github.com/mberwanger/quartermaster/internal/preflight"
 )
 
 type buildCmd struct {
@@ -53,15 +52,13 @@ build.`,
 }
 
 func (v *buildCmd) run(out io.Writer) error {
-	preflightResult, err := preflight.Run(preflight.Options{
-		Root:   v.root,
+	builtBundle, err := bundlepkg.Compile(v.root, bundlepkg.Source{
 		Repo:   v.repo,
 		Commit: v.commit,
 	})
 	if err != nil {
 		return err
 	}
-	builtBundle := preflightResult.Bundle
 
 	if err := bundlepkg.Write(builtBundle, v.out); err != nil {
 		return err

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mberwanger/quartermaster/internal/preflight"
+	"github.com/mberwanger/quartermaster/internal/validate"
 )
 
 // storeFixture is a small store known to validate and build cleanly, shared by
@@ -24,7 +24,7 @@ func copyStoreFixture(t *testing.T) string {
 }
 
 // breakStore adds a document that fails the store's own schema, so a caller
-// gets a *preflight.ValidationError to test rendering against.
+// gets a *validate.Error to test rendering against.
 func breakStore(t *testing.T, storeRoot string) {
 	t.Helper()
 	invalidPath := filepath.Join(storeRoot, "broken.md")
@@ -34,9 +34,9 @@ func breakStore(t *testing.T, storeRoot string) {
 }
 
 // validate, build, and bundle init all compile a store through the same
-// internal/preflight call. Every one of them must return a *ValidationError
-// bare, with no extra wrapping, so the CLI renders the same failure the same
-// way everywhere a store fails to compile.
+// bundle.Compile call. Every one of them must return a *validate.Error bare,
+// with no extra wrapping, so the CLI renders the same failure the same way
+// everywhere a store fails to compile.
 func TestValidateReturnsValidationErrorUnwrapped(t *testing.T) {
 	storeRoot := copyStoreFixture(t)
 	breakStore(t, storeRoot)
@@ -79,15 +79,15 @@ func TestBundleInitReturnsValidationErrorUnwrapped(t *testing.T) {
 	}
 	breakStore(t, storeRoot)
 
-	// force so the second run reaches preflight instead of the overwrite gate;
+	// force so the second run reaches the compile instead of the overwrite gate;
 	// that gate is covered separately in bundle_init_test.go.
 	command.force = true
 	err := command.run(&bytes.Buffer{})
 	assertBareValidationError(t, err)
 }
 
-// assertBareValidationError requires that err both is a *preflight.ValidationError
-// and stringifies to exactly that error's own message, so a caller cannot have
+// assertBareValidationError requires that err both is a *validate.Error and
+// stringifies to exactly that error's own message, so a caller cannot have
 // added a prefix or suffix on top of it.
 func assertBareValidationError(t *testing.T, err error) {
 	t.Helper()
@@ -95,9 +95,9 @@ func assertBareValidationError(t *testing.T, err error) {
 		t.Fatal("an invalid store passed compilation")
 	}
 
-	var validationErr *preflight.ValidationError
+	var validationErr *validate.Error
 	if !errors.As(err, &validationErr) {
-		t.Fatalf("error = %v (%T), want *preflight.ValidationError", err, err)
+		t.Fatalf("error = %v (%T), want *validate.Error", err, err)
 	}
 	if err.Error() != validationErr.Error() {
 		t.Fatalf("error was wrapped instead of returned bare:\ngot  = %q\nwant = %q", err.Error(), validationErr.Error())
