@@ -81,3 +81,27 @@ func TestAgentsMDPointer(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoveBlock(t *testing.T) {
+	for _, tt := range []struct {
+		name, in, want string
+		found          bool
+	}{
+		{"prose above", "# Records\n\nWhy this exists.\n\n<!-- BEGIN X -->\n- a\n<!-- END X -->\n", "# Records\n\nWhy this exists.\n", true},
+		{"block alone", "<!-- BEGIN X -->\n- a\n<!-- END X -->\n", "", true},
+		{"prose both sides", "top\n\n<!-- BEGIN X -->\n- a\n<!-- END X -->\n\nbottom\n", "top\n\nbottom\n", true},
+		{"no block", "just prose\n", "just prose\n", false},
+		{"unterminated", "top\n<!-- BEGIN X -->\n- a\n", "top\n<!-- BEGIN X -->\n- a\n", false},
+	} {
+		got, found := RemoveBlock(tt.in, "X")
+		if got != tt.want || found != tt.found {
+			t.Errorf("%s: RemoveBlock = %q, %v, want %q, %v", tt.name, got, found, tt.want, tt.found)
+		}
+		// Removing and applying again round-trips to the same block.
+		if tt.found {
+			if again := ApplyBlock(got, "X", "- a\n"); !strings.Contains(again, "<!-- BEGIN X -->\n- a\n<!-- END X -->") {
+				t.Errorf("%s: reapplied = %q", tt.name, again)
+			}
+		}
+	}
+}

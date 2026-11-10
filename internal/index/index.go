@@ -341,7 +341,7 @@ func Sync(root string, cfg *config.Config, write bool) ([]string, error) {
 			return nil, err
 		}
 
-		next := apply(string(existing), f.Region, f.Path)
+		next := Apply(string(existing), f)
 		if string(existing) == next {
 			continue
 		}
@@ -356,12 +356,73 @@ func Sync(root string, cfg *config.Config, write bool) ([]string, error) {
 	return changed, nil
 }
 
-// apply splices the region into an existing listing, giving the store root its
-// format declaration when the file is new.
-func apply(existing, region, indexPath string) string {
-	next := target.ApplyBlock(existing, Marker, region)
-	if strings.TrimSpace(existing) == "" && indexPath == Name {
+// Apply splices f's listing into the existing content of its index.md, giving
+// the store root its format declaration when the file is new. It is how Sync
+// writes a committed listing and how a bundle built with listings: build
+// writes one into the artifact.
+func Apply(existing string, f File) string {
+	next := target.ApplyBlock(existing, Marker, f.Region)
+	if strings.TrimSpace(existing) == "" && f.Path == Name {
 		return rootFrontmatter + "\n" + next
 	}
 	return next
+}
+
+// Committed returns every index.md in the store that carries a generated
+// listing. A store built with listings: build must have none, or two pull
+// requests that each add a document conflict over it again.
+func Committed(root string) ([]string, error) {
+	reserved, err := doc.LoadReserved(root, []string{"dist"})
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, f := range reserved {
+		if path.Base(f.Path) != Name {
+			continue
+		}
+		if _, ok := target.BlockRegion(string(f.Body), Marker); ok {
+			out = append(out, f.Path)
+		}
+	}
+	return out, nil
+}
+
+// Strip removes the generated listing from every index.md that carries one,
+// leaving the prose above it, and reports the files it changed. With write
+// false it changes nothing. An index.md left with nothing in it is deleted,
+// since a bundle built with listings: build writes the whole file anyway.
+//
+// It is the one-time move of a store from listings: committed to build.
+func Strip(root string, write bool) ([]string, error) {
+	paths, err := Committed(root)
+	if err != nil {
+		return nil, err
+	}
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = r.Close() }()
+
+	for _, p := range paths {
+		body, err := r.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		next, _ := target.RemoveBlock(string(body), Marker)
+		if !write {
+			continue
+		}
+		if strings.TrimSpace(next) == "" {
+			if err := r.Remove(p); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if err := r.WriteFile(p, []byte(next), 0o644); err != nil { //nolint:gosec // the prose is committed, as before
+			return nil, err
+		}
+	}
+	return paths, nil
 }

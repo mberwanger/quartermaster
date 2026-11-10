@@ -23,6 +23,7 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/config"
 	"github.com/mberwanger/quartermaster/internal/doc"
+	"github.com/mberwanger/quartermaster/internal/index"
 )
 
 // Finding is one problem with one doc.
@@ -173,6 +174,21 @@ func Run(root string, cfg *config.Config) (Result, error) {
 		return Result{}, err
 	}
 	res.Findings = append(res.Findings, conformance(reserved)...)
+
+	// A store that writes its listings at build keeps none committed, or two
+	// pull requests that each add a document conflict over one again.
+	if cfg.ListingsAtBuild() {
+		committed, err := index.Committed(root)
+		if err != nil {
+			return Result{}, err
+		}
+		for _, p := range committed {
+			res.Findings = append(res.Findings, Finding{
+				Path:    p,
+				Message: "carries a generated listing, but this store writes listings at build (listings: build); run qm bundle index --strip",
+			})
+		}
+	}
 
 	sort.Slice(res.Findings, func(i, j int) bool {
 		if res.Findings[i].Path != res.Findings[j].Path {

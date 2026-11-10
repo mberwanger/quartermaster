@@ -16,6 +16,7 @@ type indexCmd struct {
 	cmd   *cobra.Command
 	root  string
 	check bool
+	strip bool
 }
 
 func newIndexCmd() *indexCmd {
@@ -38,7 +39,13 @@ request gate wants.
 
 A listing whose directory has been emptied is reported but never touched. It is
 not regenerated, because nothing asks for it any more, and not deleted, because
-the prose above the generated region is not this tool's to remove.`,
+the prose above the generated region is not this tool's to remove.
+
+A store with listings: build in bundle.yaml keeps only the prose committed and
+has the bundle write each listing when it is built, so two pull requests that
+each add a document never conflict over one. There this command writes nothing:
+it prints the listings the bundle will carry, --check fails on any listing still
+committed, and --strip removes them, which is the one-time move to build.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -48,6 +55,8 @@ the prose above the generated region is not this tool's to remove.`,
 
 	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the store")
 	cmd.Flags().BoolVar(&v.check, "check", false, "Fail when a listing is out of date, writing nothing")
+	cmd.Flags().BoolVar(&v.strip, "strip", false, "Remove committed listings, for a store with listings: build")
+	cmd.MarkFlagsMutuallyExclusive("check", "strip")
 
 	v.cmd = cmd
 	return v
@@ -57,6 +66,12 @@ func (v *indexCmd) run(out io.Writer) error {
 	cfg, err := config.Load(v.root)
 	if err != nil {
 		return err
+	}
+	if v.strip && !cfg.ListingsAtBuild() {
+		return errors.New("--strip removes committed listings, which only a store with listings: build in bundle.yaml does without; set it first")
+	}
+	if cfg.ListingsAtBuild() {
+		return v.runAtBuild(out, cfg)
 	}
 
 	changed, err := index.Sync(v.root, cfg, !v.check)
@@ -97,6 +112,52 @@ func (v *indexCmd) run(out io.Writer) error {
 	}
 	writeOrphans(&b, orphans)
 	_, err = io.WriteString(out, b.String())
+	return err
+}
+
+// runAtBuild is the command for a store whose bundle writes the listings.
+func (v *indexCmd) runAtBuild(out io.Writer, cfg *config.Config) error {
+	var b strings.Builder
+	switch {
+	case v.strip:
+		stripped, err := index.Strip(v.root, true)
+		if err != nil {
+			return err
+		}
+		for _, p := range stripped {
+			fmt.Fprintf(&b, "stripped %s\n", p)
+		}
+		fmt.Fprintf(&b, "ok: %d committed listing(s) removed; the bundle writes them at build\n", len(stripped))
+
+	case v.check:
+		committed, err := index.Committed(v.root)
+		if err != nil {
+			return err
+		}
+		for _, p := range committed {
+			fmt.Fprintf(&b, "%s: carries a generated listing\n", p)
+		}
+		if len(committed) > 0 {
+			fmt.Fprintf(&b, "\n%d listing(s) committed; this store writes them at build, run qm bundle index --strip\n", len(committed))
+			_, _ = io.WriteString(out, b.String())
+			return errors.New("listings are committed")
+		}
+		fmt.Fprintf(&b, "ok: no listing is committed; the bundle writes them at build\n")
+
+	default:
+		listings, err := index.Build(v.root, cfg)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(&b, "listings: build; nothing is written to the store. The bundle will carry:\n")
+		for _, l := range listings {
+			fmt.Fprintf(&b, "\n== %s\n%s", l.Path, l.Region)
+			if !strings.HasSuffix(l.Region, "\n") {
+				b.WriteString("\n")
+			}
+		}
+	}
+	_, err := io.WriteString(out, b.String())
 	return err
 }
 

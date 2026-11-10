@@ -39,6 +39,37 @@ func ApplyBlock(existing, marker, body string) string {
 	return strings.TrimRight(existing, "\n") + "\n\n" + block
 }
 
+// RemoveBlock deletes the marked block from existing, with the blank line
+// ApplyBlock puts before an appended one, and reports whether there was a
+// block to remove. Content outside the block is preserved.
+func RemoveBlock(existing, marker string) (string, bool) {
+	begin, end := markers(marker)
+
+	i := strings.Index(existing, begin)
+	if i < 0 {
+		return existing, false
+	}
+	j := strings.Index(existing[i:], end)
+	if j < 0 {
+		return existing, false
+	}
+	tail := i + j + len(end)
+	if k := strings.IndexByte(existing[tail:], '\n'); k >= 0 {
+		tail += k + 1
+	} else {
+		tail = len(existing)
+	}
+	head := strings.TrimRight(existing[:i], "\n")
+	if head != "" {
+		head += "\n"
+	}
+	rest := existing[tail:]
+	if head != "" && rest != "" {
+		head += "\n"
+	}
+	return head + strings.TrimLeft(rest, "\n"), true
+}
+
 // BlockRegion returns the body between the markers in existing, trimmed of the
 // surrounding newlines, and whether a complete region was found. It is what
 // verify compares against a freshly rendered block.
