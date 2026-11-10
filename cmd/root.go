@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/mberwanger/quartermaster/cmd/bundle"
 	"github.com/mberwanger/quartermaster/internal/output"
 	"github.com/mberwanger/quartermaster/internal/version"
 )
@@ -75,8 +76,8 @@ model call is made at any point.`,
 	cmd.PersistentFlags().BoolVarP(&root.verbose, "verbose", "v", false, "enable verbose mode")
 	cmd.PersistentFlags().BoolP("help", "h", false, "help for qm")
 
-	// Producer commands, grouped under `bundle`.
-	cmd.AddCommand(newBundleCmd().cmd)
+	// Producer commands, grouped under `bundle` and in their own package.
+	cmd.AddCommand(bundle.New())
 
 	// Consumer commands stay at the top level: they are the tool's primary
 	// surface, run in every consuming repository.

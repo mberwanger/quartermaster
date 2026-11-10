@@ -1,5 +1,5 @@
-// Package doc reads a knowledge store: every markdown file and the YAML
-// frontmatter it carries.
+// Package doc reads a store: every markdown file and the YAML frontmatter it
+// carries.
 //
 // Frontmatter is returned in its JSON shape so it can be validated directly
 // against a JSON Schema. The schema is the single owner of what a valid doc

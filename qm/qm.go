@@ -8,7 +8,7 @@
 // drift.
 //
 // The surface matches how an agent uses knowledge. Rules renders the documents a
-// set of rulesets selects into one string, for the agent's own instruction (its
+// set of packages selects into one string, for the agent's own instruction (its
 // system prompt). Catalog and Document are the two halves of progressive
 // disclosure: an agent lists what exists by id and description, then fetches the
 // one it wants. Scope does not appear, because a library agent has no file-open
@@ -140,34 +140,35 @@ func (b *Bundle) Document(id string) ([]byte, error) {
 	return doc.Prose(body), nil
 }
 
-// Rules renders the documents the named rulesets select into a single string, to
+// Rules renders the documents the named packages select into a single string, to
 // assign to an agent's instruction (its system prompt). A document named by more
-// than one ruleset appears once, and the order follows the rulesets as given, so
+// than one package appears once, and the order follows the packages as given, so
 // precedence is the caller's to state.
+//
+// Only the packages' rules are rendered. A skill is a capability an agent loads
+// when the work matches, and an agent is one it delegates to, so neither belongs
+// in an instruction string that is paid for in every request.
 //
 // Scope is ignored: a library agent has no file-open event, so every selected
 // document is rendered rather than waiting on a glob. The text of each is exactly
 // what the same document becomes as a rule file.
-func (b *Bundle) Rules(rulesets ...string) (string, error) {
-	byName := make(map[string]bool, len(rulesets))
+func (b *Bundle) Rules(packages ...string) (string, error) {
+	byName := make(map[string]bool, len(packages))
 
 	var sections []string
 	seen := make(map[string]bool)
 
-	for _, name := range rulesets {
+	for _, name := range packages {
 		if byName[name] {
 			continue
 		}
 		byName[name] = true
 
-		rs, ok := b.pkg(name)
+		p, ok := b.pkg(name)
 		if !ok {
 			return "", fmt.Errorf("bundle has no package %q", name)
 		}
-		// Rules only. A skill is loaded when the work matches and an agent is
-		// spawned, so neither belongs in an instruction string that is paid for
-		// in every request.
-		for _, cd := range rs.Rules {
+		for _, cd := range p.Rules {
 			if seen[cd.ID] {
 				continue
 			}

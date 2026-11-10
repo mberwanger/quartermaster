@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"fmt"
@@ -8,28 +8,27 @@ import (
 
 	"github.com/spf13/cobra"
 
+	bundlepkg "github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/config"
 	"github.com/mberwanger/quartermaster/internal/index"
-	"github.com/mberwanger/quartermaster/internal/preflight"
 	"github.com/mberwanger/quartermaster/internal/scaffold"
 )
 
-type bundleInitCmd struct {
+type initCmd struct {
 	cmd   *cobra.Command
 	root  string
 	name  string
 	force bool
 }
 
-func newBundleInitCmd() *bundleInitCmd {
-	v := &bundleInitCmd{}
+func newInitCmd() *initCmd {
+	v := &initCmd{}
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Scaffold a new knowledge store",
-		Long: `Write the files a knowledge store needs: the bundle declaration, a
-frontmatter schema, an empty packages file, a root index, and a template to copy
-from.
+		Short: "Scaffold a new store",
+		Long: `Write the files a store needs: the bundle declaration, a frontmatter
+schema, an empty packages file, a root index, and a template to copy from.
 
 The result validates and builds as it stands, so there is a working store to add
 documents to rather than a pile of files to repair first.
@@ -51,7 +50,7 @@ schema, packages, root index, and template. Other files are left untouched.`,
 	return v
 }
 
-func (v *bundleInitCmd) run(out io.Writer) error {
+func (v *initCmd) run(out io.Writer) error {
 	name := v.name
 	if name == "" {
 		abs, err := filepath.Abs(v.root)
@@ -85,10 +84,10 @@ func (v *bundleInitCmd) run(out io.Writer) error {
 	if _, err := index.Sync(v.root, cfg, true); err != nil {
 		return err
 	}
-	// A bare return renders a preflight failure the same way validate and build
+	// A bare return renders a compile failure the same way validate and build
 	// already do, rather than adding an extra prefix on top of the same
 	// findings block.
-	preflightResult, err := preflight.Run(preflight.Options{Root: v.root})
+	compiled, err := bundlepkg.Compile(v.root, bundlepkg.Source{})
 	if err != nil {
 		return err
 	}
@@ -98,8 +97,8 @@ func (v *bundleInitCmd) run(out io.Writer) error {
 	for _, f := range written {
 		fmt.Fprintf(&b, "  %s\n", f)
 	}
-	fmt.Fprintf(&b, "\npreflight passes (%d doc). Next: copy meta/templates/concept.md to a domain\n",
-		preflightResult.Validation.Checked)
+	fmt.Fprintf(&b, "\nstore compiles (%d doc). Next: copy meta/templates/concept.md to a domain\n",
+		compiled.Meta.Checked)
 	fmt.Fprintf(&b, "directory, then `qm bundle index`, `qm bundle validate`, and `qm bundle build`.\n")
 
 	_, err = io.WriteString(out, b.String())

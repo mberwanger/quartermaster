@@ -3,7 +3,7 @@
 //
 // Materialized output is gitignored, so git does not update it when a branch is
 // switched or pulled. A branch that pins a different digest or changes the
-// ruleset list leaves the rules stale with no visible signal. The hooks close
+// package list leaves the rules stale with no visible signal. The hooks close
 // that gap by running a sync after checkout and after merge.
 package repo
 
@@ -69,7 +69,7 @@ func EnsureGitignore(dir string, patterns []string) ([]string, error) {
 
 // hookMarker identifies a hook Quartermaster wrote, so a later init updates its
 // own hook but never clobbers one the user wrote.
-const hookMarker = "quartermaster-managed"
+const hookMarker = "qm-managed"
 
 // managedHooks are the git hooks that keep materialized knowledge current.
 var managedHooks = []string{"post-checkout", "post-merge"}

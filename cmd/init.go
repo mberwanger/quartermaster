@@ -167,16 +167,16 @@ func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 		}
 
 		offered := make(map[string]bool, len(b.Packages))
-		for _, rs := range b.Packages {
-			offered[rs.Name] = true
+		for _, p := range b.Packages {
+			offered[p.Name] = true
 		}
 
-		// Ruleset order is precedence, so preserve the order the author asked
+		// Package order is precedence, so preserve the order the author asked
 		// for. Without a filter, fall back to the bundle's own order.
 		var names []string
 		if len(want) == 0 {
-			for _, rs := range b.Packages {
-				names = append(names, rs.Name)
+			for _, p := range b.Packages {
+				names = append(names, p.Name)
 			}
 		} else {
 			for _, r := range v.packages {
@@ -243,7 +243,7 @@ func detectTargets(dir string) []string {
 // ignorePatterns gathers the gitignore entries for the selected targets, plus
 // the Quartermaster state and knowledge directory that every repository has.
 func ignorePatterns(targets []string) []string {
-	patterns := []string{"/.quartermaster/"}
+	patterns := []string{"/.qm/"}
 	for _, name := range targets {
 		t, ok := target.Get(name)
 		if !ok {

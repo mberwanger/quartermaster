@@ -4,8 +4,7 @@ title: Restricted note
 description: Restricted, must never leave the store.
 domain: engineering
 type: concept
-status: active
-provenance: verified
+status: stable
 owner: platform
 visibility: restricted
 ---

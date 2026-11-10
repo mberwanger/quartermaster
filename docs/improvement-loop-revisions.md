@@ -11,8 +11,9 @@ Nothing here is built. The command surface in section 2 is a rename of shipped
 code; sections 5 and 6 are new behavior. Claims about current state cite the
 file that proves them. Claims about intent are judgment and carry no citation.
 
-The occasional `ruleset` below inherits the parent spec's vocabulary; see its
-"Superseded since this verification" note for the current `package` naming.
+Vocabulary is `package`, matching the parent spec, which was swept to that
+naming on 2026-08-09. A package is a named selection of rules, skills, and
+agents; the older `ruleset` selected documents only.
 
 **What first use was.** Fifteen facet records across two repositories, three of
 them annotated by hand through the `digest-questions` skill, carrying eleven
@@ -291,16 +292,16 @@ about to annotate before it does.
 
 `qm gaps --drafts <dir>` already writes candidate documents and already stamps
 them `status: draft` with `provenance: asserted`, which under the store's
-`requires:` keeps them out of every ruleset until a person promotes one. That
+`requires:` keeps them out of every package until a person promotes one. That
 gate is what makes staging a draft anywhere safe, and it is the part that is
 finished.
 
 What is missing is the convention around it.
 
-**A default location.** `.quartermaster/drafts/`, beside the materialized
-`.quartermaster/knowledge/`. Gitignored, through the block `qm init` already
+**A default location.** `.qm/drafts/`, beside the materialized
+`.qm/knowledge/`. Gitignored, through the block `qm init` already
 manages: drafts in the `git status` of a working repository are noise, because
-that repository is not the knowledge store and is not where they will be
+that repository is not the store and is not where they will be
 committed.
 
 **The two exits, neither of which is built.** Both are already designed in the
@@ -309,7 +310,7 @@ than a formality:
 
 | Destination | Meaning | Spec |
 |---|---|---|
-| The shared knowledge store | Everyone consuming the bundle gets it | 4.8, `qm propose` |
+| The shared store | Everyone consuming the bundle gets it | 4.8, `qm propose` |
 | The operator's own repository | Local overlay, no distribution | 4.9 |
 
 The staging folder is the missing middle between them. Without it, the end of
@@ -317,7 +318,7 @@ the promotion conversation is a set of conclusions that live in a terminal
 scrollback, and closing the window loses them.
 
 **Placement must ride in the draft's frontmatter.** The promotion conversation
-produces three judgments, not one: which bundle carries it, which ruleset makes
+produces three judgments, not one: which bundle carries it, which package makes
 it relevant, and whether it is resident or fetched on demand. Residency is the
 one with a price, since `qm status` tracks a resident budget and every
 auto-loaded document spends from it. If those three do not travel with the file,

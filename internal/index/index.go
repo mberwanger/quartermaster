@@ -71,9 +71,16 @@ var headings = []struct{ docType, heading string }{
 // Build computes the index files the store should have. A directory gets one
 // when it holds documents, or when a directory beneath it does.
 func Build(root string, cfg *config.Config) ([]File, error) {
+	files, _, err := build(root, cfg)
+	return files, err
+}
+
+// build is Build plus the skill directories it stopped at, which Orphans needs
+// in order to leave a skill's own files alone.
+func build(root string, cfg *config.Config) ([]File, map[string]bool, error) {
 	all, err := doc.Load(root, []string{"dist"})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Distributed rather than merely a document. An index is a navigation aid
@@ -141,7 +148,7 @@ func Build(root string, cfg *config.Config) ([]File, error) {
 	}
 
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-	return files, nil
+	return files, skillDirs, nil
 }
 
 // count reports how many documents live at or below a directory.
@@ -217,6 +224,95 @@ func documents(n int) string {
 		return "1 document"
 	}
 	return fmt.Sprintf("%d documents", n)
+}
+
+// Orphan is a listing for a directory the store no longer has documents in,
+// whose generated region still names some.
+type Orphan struct {
+	// Path is slash-separated and relative to the store root.
+	Path string
+	// Entries is how many documents the stale region still lists, which is the
+	// measure of how wrong it is.
+	Entries int
+}
+
+// Orphans reports listings nothing regenerates any more.
+//
+// Sync only visits the files Build asks for, so an index whose directory has
+// been emptied is not rewritten and not deleted: it keeps advertising documents
+// that moved or went away. The build refuses to carry it (a reserved file in an
+// unindexed directory is dropped there), so this never reaches a consumer. It
+// misleads whoever reads the store itself, which is reason enough to say so.
+//
+// This reports and never writes. Three rules keep it off files that are not
+// stale listings at all, because the cost of a false positive here is a person
+// deleting prose a generator cannot put back:
+//
+//   - The file carries the markers. A hand-written index.md has no generated
+//     region, and appending one to it is the specific damage to avoid.
+//   - The region names at least one document. An empty region tells no lie, and
+//     a store commonly keeps one in a directory that holds only machinery.
+//   - The directory is not a skill. A listing stops at a skill rather than
+//     descending, so a skill's own files are never this package's to judge.
+func Orphans(root string, cfg *config.Config) ([]Orphan, error) {
+	files, skillDirs, err := build(root, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	needed := make(map[string]bool, len(files))
+	for _, f := range files {
+		needed[f.Path] = true
+	}
+
+	reserved, err := doc.LoadReserved(root, []string{"dist"})
+	if err != nil {
+		return nil, err
+	}
+
+	var orphans []Orphan
+	for _, f := range reserved {
+		if path.Base(f.Path) != Name || needed[f.Path] {
+			continue
+		}
+		if inSkill(path.Dir(f.Path), skillDirs) {
+			continue
+		}
+		region, ok := target.BlockRegion(string(f.Body), Marker)
+		if !ok {
+			continue
+		}
+		if n := entries(region); n > 0 {
+			orphans = append(orphans, Orphan{Path: f.Path, Entries: n})
+		}
+	}
+
+	sort.Slice(orphans, func(i, j int) bool { return orphans[i].Path < orphans[j].Path })
+	return orphans, nil
+}
+
+// inSkill reports whether a directory is a skill or sits inside one.
+func inSkill(dir string, skillDirs map[string]bool) bool {
+	for d := dir; ; d = path.Dir(d) {
+		if skillDirs[d] {
+			return true
+		}
+		if d == "." {
+			return false
+		}
+	}
+}
+
+// entries counts the documents a rendered region lists. Headings and blank
+// lines are not claims about what a directory holds; the bullets are.
+func entries(region string) int {
+	n := 0
+	for line := range strings.SplitSeq(region, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "* [") {
+			n++
+		}
+	}
+	return n
 }
 
 // Sync brings every index file in line with the store and reports the ones that

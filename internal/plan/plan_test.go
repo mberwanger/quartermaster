@@ -9,7 +9,7 @@ import (
 
 func writeManifest(t *testing.T, dir, body string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, ".quartermaster.yaml"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".qm.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -31,7 +31,7 @@ func TestCompute(t *testing.T) {
 		t.Fatalf("compute: %v", err)
 	}
 
-	// eng.logging (scoped in both rulesets) and eng.errors (resident) dedup to
+	// eng.logging (scoped in both packages) and eng.errors (resident) dedup to
 	// two docs.
 	if len(r.Docs) != 2 {
 		t.Fatalf("docs = %d, want 2", len(r.Docs))
@@ -40,7 +40,7 @@ func TestCompute(t *testing.T) {
 	wantOutputs := []string{
 		".claude/rules/qm/eng.errors.md",
 		".claude/rules/qm/eng.logging.md",
-		".quartermaster/knowledge/engineering/errors.md",
+		".qm/knowledge/engineering/errors.md",
 	}
 	for _, p := range wantOutputs {
 		if _, ok := r.Outputs[p]; !ok {
@@ -49,7 +49,7 @@ func TestCompute(t *testing.T) {
 	}
 
 	// The restricted doc never reaches the knowledge tree.
-	if _, ok := r.Outputs[".quartermaster/knowledge/engineering/secret.md"]; ok {
+	if _, ok := r.Outputs[".qm/knowledge/engineering/secret.md"]; ok {
 		t.Fatal("restricted doc leaked into outputs")
 	}
 
@@ -69,7 +69,7 @@ func TestCompute(t *testing.T) {
 	}
 }
 
-func TestComputeUnknownRulesetFails(t *testing.T) {
+func TestComputeUnknownPackageFails(t *testing.T) {
 	store, _ := filepath.Abs("../bundle/testdata/store")
 	dir := t.TempDir()
 	writeManifest(t, dir, "bundles:\n"+

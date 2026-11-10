@@ -1,5 +1,5 @@
 // Package gaps turns a corpus of facet records into a ranked shortlist of
-// things the knowledge store should probably say.
+// things the store should probably say.
 //
 // Two rules shape everything here, and both come from the same place: a store
 // that grows by frequency alone becomes a stale mirror of the code.
@@ -38,7 +38,7 @@ import (
 // One that sent somebody outside the repository, or that nobody could answer,
 // argues strongly: that answer is not coming back on its own.
 var recoverability = map[string]float64{
-	facet.ResolutionStoreRead:       0.0,
+	facet.ResolutionKnowledgeRead:   0.0,
 	facet.ResolutionSourceRead:      0.2,
 	facet.ResolutionBashExploration: 0.3,
 	facet.ResolutionExternalDocs:    0.7,

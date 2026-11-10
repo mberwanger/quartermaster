@@ -4,14 +4,14 @@ title: Retrying a payment
 description: Retry only what the processor called retryable, with an idempotency key that survives the retry. Never retry on a timeout without checking first.
 domain: billing
 type: runbook
-status: active
-provenance: verified
+status: stable
 owner: billing
 scope: ["internal/billing/**", "**/payment*.go"]
 tags: [money, resilience]
 sources:
-  - repo: example-billing
-    path: internal/billing/retry.go
+  - id: retry
+    resource: example-billing/internal/billing/retry.go
+    title: Payment retry implementation
 ---
 
 # Retrying a payment

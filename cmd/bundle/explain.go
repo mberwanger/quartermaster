@@ -1,0 +1,267 @@
+package bundle
+
+import (
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/mberwanger/quartermaster/internal/config"
+	"github.com/mberwanger/quartermaster/internal/doc"
+	"github.com/mberwanger/quartermaster/internal/pack"
+)
+
+type explainCmd struct {
+	cmd  *cobra.Command
+	root string
+}
+
+func newExplainCmd() *explainCmd {
+	v := &explainCmd{}
+
+	cmd := &cobra.Command{
+		Use:   "explain <id>",
+		Short: "Show why a document was or was not materialized",
+		Long: `Explain a document's fate: whether it is a document at all under the
+include and exclude patterns, which packages select it and as what, and whether
+it can be that.
+
+Ask it when a document is well-formed and still does not turn up where you
+expected. A malformed one is qm bundle validate's job, and it says so loudly;
+this is for the case where nothing failed and the document is simply not
+selected, which no other command reports.
+
+The requires gate in bundle.yaml has to hold whatever the kind, and each kind
+then carries one more test: a skill is judged by the skills predicate, an agent
+by whether it declares an agent block. A restricted document can be none of
+them.`,
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return v.run(cmd.OutOrStdout(), args[0])
+		},
+	}
+
+	cmd.Flags().StringVar(&v.root, "root", ".", "Path to the store")
+
+	v.cmd = cmd
+	return v
+}
+
+func (v *explainCmd) run(out io.Writer, id string) error {
+	cfg, err := config.Load(v.root)
+	if err != nil {
+		return err
+	}
+
+	docs, err := doc.Load(v.root, []string{"dist"})
+	if err != nil {
+		return err
+	}
+
+	var found *doc.Doc
+	for i := range docs {
+		if docs[i].ID() == id {
+			found = &docs[i]
+			break
+		}
+	}
+	if found == nil {
+		return fmt.Errorf("no document has id %q under %s", id, v.root)
+	}
+
+	packages, err := pack.Load(v.root, cfg.Packages)
+	if err != nil {
+		return err
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\n", id)
+	fmt.Fprintf(&b, "  path        %s\n", found.Path)
+
+	isDoc := cfg.IsDocument(found.Path)
+	fmt.Fprintf(&b, "  document    %s\n", yesNo(isDoc, "included", "excluded by include/exclude patterns"))
+	if cfg.IsControl(found.Path) {
+		fmt.Fprintf(&b, "  control     yes (partitioned out of the catalog and corpus)\n")
+	}
+
+	restricted := found.Str("visibility") == "restricted"
+	fmt.Fprintf(&b, "  on disk     %s\n", yesNo(isDoc && !restricted && !cfg.IsControl(found.Path),
+		"yes", "no"))
+
+	// The gate governs every kind, so this is one line rather than a caveat per
+	// kind. What differs between kinds is the additional test each has to pass,
+	// which is reported with the verdict below.
+	allowed, reason := cfg.Requires.Allows(found.Frontmatter)
+	fmt.Fprintf(&b, "  requires    %s\n", metOrNot(allowed, reason))
+
+	referencing := packagesReferencing(packages, id, found.Frontmatter)
+	if len(referencing) == 0 {
+		fmt.Fprintf(&b, "  packages    none reference it\n")
+	}
+	for _, sel := range referencing {
+		fmt.Fprintf(&b, "  packages    as %s: %s\n", sel.kind, strings.Join(sel.packages(), ", "))
+	}
+
+	// The bottom line, which is per kind because the qualifying predicate is.
+	switch {
+	case len(referencing) == 0 && isDoc && !restricted:
+		fmt.Fprintf(&b, "  → on disk only; no package selects it\n")
+	case len(referencing) == 0:
+		fmt.Fprintf(&b, "  → not materialized\n")
+	}
+	for _, sel := range referencing {
+		ok, why := qualifies(cfg, sel.kind, found, allowed, reason)
+		if ok {
+			fmt.Fprintf(&b, "  → materializes as %s via %s\n", article(sel.kind), strings.Join(sel.packages(), ", "))
+			continue
+		}
+		// Naming a document that cannot be what it was named as is an author's
+		// mistake and stops the build. A pattern or a predicate that happens to
+		// cover it skips it instead, so the build succeeds and the package
+		// simply does not carry it. Reporting both as a failure would send
+		// someone to fix a store that builds.
+		if len(sel.byName) > 0 {
+			fmt.Fprintf(&b, "  → named as %s by %s, which it cannot be: %s, so the build fails until fixed\n",
+				article(sel.kind), strings.Join(sel.byName, ", "), why)
+		}
+		if len(sel.byMatch) > 0 {
+			fmt.Fprintf(&b, "  → matched as %s by %s and skipped there: %s\n",
+				article(sel.kind), strings.Join(sel.byMatch, ", "), why)
+		}
+	}
+
+	_, err = io.WriteString(out, b.String())
+	return err
+}
+
+// qualifies mirrors what the package compiler asks of a document for each kind:
+// restricted first and for every kind, then the gate for every kind, then the
+// one extra test that kind carries. It has to stay in step with pack.qualifies,
+// which is what TestExplainAgreesWithTheCompiler exists to enforce.
+func qualifies(cfg *config.Config, kind pack.Kind, d *doc.Doc, allowed bool, reason string) (bool, string) {
+	if d.Restricted() {
+		return false, "it is restricted and never leaves the store"
+	}
+	if !allowed {
+		return false, reason
+	}
+	switch kind {
+	case pack.KindSkill:
+		if !cfg.IsSkill(*d) {
+			return false, "it is not a skill"
+		}
+	case pack.KindAgent:
+		if !cfg.IsAgent(*d) {
+			return false, "it is not an agent"
+		}
+	}
+	return true, ""
+}
+
+func metOrNot(ok bool, reason string) string {
+	if ok {
+		return "met"
+	}
+	return "not met: " + reason
+}
+
+// article names one kind in the singular, since the compiler's Kind values are
+// the plural list names a package writes.
+func article(kind pack.Kind) string {
+	switch kind {
+	case pack.KindRule:
+		return "a rule"
+	case pack.KindSkill:
+		return "a skill"
+	case pack.KindAgent:
+		return "an agent"
+	}
+	return string(kind)
+}
+
+// selection is the packages that select a document as one kind. A document is
+// usually selected as one thing, but nothing stops two packages disagreeing, so
+// the kind is carried rather than assumed.
+//
+// byName and byMatch are kept apart because the compiler treats them differently
+// when a document does not qualify: naming one outright fails the build, while a
+// pattern or a predicate skips it and builds on. Reporting both as "referenced"
+// would make explain announce a failing build for a store that builds.
+type selection struct {
+	kind    pack.Kind
+	byName  []string
+	byMatch []string
+}
+
+// packages is every package selecting the document, in one list, for the case
+// where the distinction does not matter.
+func (s selection) packages() []string {
+	return append(append([]string{}, s.byName...), s.byMatch...)
+}
+
+// packagesReferencing reports which packages name a document, and as what. The
+// kind is the whole point: it decides both what the document becomes and which
+// predicate has to hold for it, and those differ. A pattern or a where clause is
+// reported when it matches, so an author can see that a document is selected
+// without a package naming it outright.
+func packagesReferencing(f pack.File, id string, frontmatter map[string]any) []selection {
+	byKind := map[pack.Kind]*selection{}
+	for _, name := range f.Names() {
+		p := f[name]
+		for _, sel := range []struct {
+			kind pack.Kind
+			refs []pack.Ref
+		}{
+			{pack.KindRule, p.Rules},
+			{pack.KindSkill, p.Skills},
+			{pack.KindAgent, p.Agents},
+		} {
+			matched, exact := selects(sel.refs, id, frontmatter)
+			if !matched {
+				continue
+			}
+			if byKind[sel.kind] == nil {
+				byKind[sel.kind] = &selection{kind: sel.kind}
+			}
+			if exact {
+				byKind[sel.kind].byName = append(byKind[sel.kind].byName, name)
+			} else {
+				byKind[sel.kind].byMatch = append(byKind[sel.kind].byMatch, name)
+			}
+		}
+	}
+
+	var out []selection
+	for _, kind := range []pack.Kind{pack.KindRule, pack.KindSkill, pack.KindAgent} {
+		if s := byKind[kind]; s != nil {
+			out = append(out, *s)
+		}
+	}
+	return out
+}
+
+// selects reports whether any of a package's selections covers the document, and
+// whether the one that did named it outright. A package naming a document and
+// also globbing it is reported as naming it, because that is the selection whose
+// failure the author would see.
+func selects(refs []pack.Ref, id string, frontmatter map[string]any) (matched, exact bool) {
+	for _, ref := range refs {
+		if !ref.Matches(id, frontmatter) {
+			continue
+		}
+		matched = true
+		if ref.Exact() {
+			return true, true
+		}
+	}
+	return matched, false
+}
+
+func yesNo(cond bool, yes, no string) string {
+	if cond {
+		return yes
+	}
+	return no
+}

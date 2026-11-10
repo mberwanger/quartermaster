@@ -10,11 +10,11 @@
 // store/ and greps it, which is how a coding agent actually works.
 // catalog.json is the frontmatter of every doc, for orientation and tooling.
 //
-// A bundle additionally carries rulesets: named selections of documents,
-// compiled at build time against the store's gate. A ruleset holds no prose,
-// only references, so a consumer renders it into a harness without evaluating
-// any predicate. Everything in the bundle is retrievable; a ruleset is what
-// makes a subset resident.
+// A bundle additionally carries packages: named selections of rules and
+// capabilities, compiled at build time against the store's gate. A package holds
+// no prose, only references, so a consumer renders it into a harness without
+// evaluating any predicate. Everything in the bundle is retrievable; a package
+// is what makes a subset resident.
 package bundle
 
 import (
@@ -54,6 +54,14 @@ type Meta struct {
 	Files      int    `json:"files"`
 	Packages   int    `json:"packages"`
 	Controls   int    `json:"controls"`
+	// Checked counts the documents held to the store's own schema, which is not
+	// Docs: validation covers every document the store declares, including the
+	// ones excluded from distribution, while Docs counts only what shipped. Both
+	// are provenance — how much was verified, and how much of it travels.
+	//
+	// It is set by Compile, since only a build that started from a store on disk
+	// knows it. A bundle assembled from parts leaves it zero.
+	Checked int `json:"checked"`
 	// StoreBytes is the total size of the store/ tree carried into the
 	// artifact, summed directly from the carried files.
 	StoreBytes int    `json:"store_bytes"`
@@ -166,13 +174,10 @@ func Build(opts Options) (*Bundle, error) {
 	// enforced there rather than left to the declared requirements: a store that
 	// omits visibility from requires, or declares none at all, must still not be
 	// able to ship one.
-	skillDirSet, skillPathSet := opts.Config.SkillDirs(docs)
-	_ = skillDirSet
-	_ = skillPathSet
 	compiled, err := pack.Compile(opts.Packages, docs, pack.Options{
 		Requires: opts.Config.Requires,
-		IsSkill:  func(d doc.Doc) bool { ok, _ := opts.Config.Skills.Allows(d.Frontmatter); return ok },
-		IsAgent:  func(d doc.Doc) bool { _, ok := d.Frontmatter["agent"].(map[string]any); return ok },
+		IsSkill:  opts.Config.IsSkill,
+		IsAgent:  opts.Config.IsAgent,
 	})
 	if err != nil {
 		return nil, err
@@ -395,7 +400,7 @@ func fenceOpen(line string) string {
 // tree collects the store files carried verbatim into the artifact: the
 // document and control markdown, read straight from disk. It reuses the config's
 // document and control predicates, so the tree carries exactly what the catalog
-// and rulesets were built from.
+// and packages were built from.
 func tree(root string, cfg *config.Config) ([]File, error) {
 	r, err := os.OpenRoot(root)
 	if err != nil {

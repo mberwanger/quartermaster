@@ -1,7 +1,7 @@
 # Example store
 
-A small knowledge store that exercises every part of the model. Everything below
-runs against it as-is.
+A small store that exercises every part of the model. Everything below runs
+against it as-is.
 
 ```
 examples/store/

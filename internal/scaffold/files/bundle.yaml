@@ -9,12 +9,23 @@ exclude: ["meta/templates/**"]
 
 # What a document must be before a package may turn it into a rule. A draft is
 # still distributed and still readable; it just never loads on its own.
+#
+# Any frontmatter field can be gated here, as an allowlist or a denylist:
+#
+#   domain: [engineering, platform]
+#   owner: { not: [archived] }
+#
+# A restricted document is kept out of the bundle by Quartermaster itself,
+# whatever this says, so it needs no line of its own.
 requires:
-  status: [active]
-  provenance: [verified, decided]
-  visibility: { not: [restricted] }
+  status: [stable]
 
-# What counts as a skill: a directory whose skill.md declares type skill. The
-# files beside it travel as assets and need no frontmatter of their own.
-skills:
-  type: [skill]
+# A document with type: skill is a skill, and type: agent an agent. A skill is a
+# directory rather than a file, so the files beside it travel as its assets and
+# need no frontmatter of their own.
+#
+# Declare skills: or agents: only to recognize a capability some other way, as a
+# predicate over any frontmatter field:
+#
+#   skills:
+#     type: [skill, playbook]

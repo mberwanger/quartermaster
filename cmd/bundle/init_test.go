@@ -1,4 +1,4 @@
-package cmd
+package bundle
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 
 func TestBundleInitCreatesCurrentStore(t *testing.T) {
 	storeRoot := filepath.Join(t.TempDir(), "new-store")
-	command := newBundleInitCmd()
+	command := newInitCmd()
 	command.root = storeRoot
 	command.name = "new-store"
 
@@ -38,14 +38,14 @@ func TestBundleInitCreatesCurrentStore(t *testing.T) {
 	if !strings.HasPrefix(string(rootIndex), wantFrontmatter) {
 		t.Fatalf("root index does not declare the current OKF version %q:\n%s", index.CurrentOKFVersion, rootIndex)
 	}
-	if !strings.Contains(output.String(), "preflight passes") {
-		t.Fatalf("output does not report preflight success:\n%s", output.String())
+	if !strings.Contains(output.String(), "store compiles") {
+		t.Fatalf("output does not report that the scaffolded store compiles:\n%s", output.String())
 	}
 }
 
 func TestBundleInitRejectsInvalidNameWithoutWriting(t *testing.T) {
 	storeRoot := filepath.Join(t.TempDir(), "new-store")
-	command := newBundleInitCmd()
+	command := newInitCmd()
 	command.root = storeRoot
 	command.name = "bad\nname"
 
@@ -59,7 +59,7 @@ func TestBundleInitRejectsInvalidNameWithoutWriting(t *testing.T) {
 
 func TestBundleInitForceReplacesOnlyScaffoldOwnedFiles(t *testing.T) {
 	storeRoot := filepath.Join(t.TempDir(), "new-store")
-	command := newBundleInitCmd()
+	command := newInitCmd()
 	command.root = storeRoot
 	command.name = "new-store"
 	if err := command.run(&bytes.Buffer{}); err != nil {
@@ -102,7 +102,7 @@ func TestBundleInitForceReplacesOnlyScaffoldOwnedFiles(t *testing.T) {
 // than silently replacing the schema, packages, and root index it finds.
 func TestBundleInitRequiresForceWhenBundleYAMLIsMissingButOtherFilesRemain(t *testing.T) {
 	storeRoot := filepath.Join(t.TempDir(), "new-store")
-	command := newBundleInitCmd()
+	command := newInitCmd()
 	command.root = storeRoot
 	command.name = "new-store"
 	if err := command.run(&bytes.Buffer{}); err != nil {

@@ -32,7 +32,7 @@ func newSyncCmd() *syncCmd {
 packages into each target harness, and prune any file a previous sync produced
 that this one does not.
 
-The retrievable knowledge tree is written whole under .quartermaster/knowledge.
+The retrievable knowledge tree is written whole under .qm/knowledge.
 Each package's rule selections become files under the harness path, resident when
 unscoped and path-scoped otherwise. Generated output is gitignored and
 reproducible from the manifest, so it is safe to delete and regenerate.`,

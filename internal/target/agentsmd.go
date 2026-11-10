@@ -14,7 +14,7 @@ const AgentsMDMarker = "QUARTERMASTER"
 // agentsMD renders a managed block in AGENTS.md.
 //
 // AGENTS.md is committed, so the block holds a pointer rather than inlined
-// rules: the bundle it draws from, the rulesets applied, and a listing of the
+// rules: the bundle it draws from, the packages applied, and a listing of the
 // rules with their scope described in prose. The full rule text lives in the
 // gitignored harness directories and the retrievable tree. A pointer is stable
 // per digest, so it does not conflict on every merge the way inlined generated
@@ -38,7 +38,7 @@ func (agentsMD) Render(in Input) (Output, error) {
 		}
 		b.WriteString("\n")
 	}
-	b.WriteString("\nMaterialized rules live under the harness rule directories; retrievable docs under `.quartermaster/knowledge/`.\n")
+	b.WriteString("\nMaterialized rules live under the harness rule directories; retrievable docs under `.qm/knowledge/`.\n")
 
 	var resident, scoped []Doc
 	for _, d := range in.Docs {

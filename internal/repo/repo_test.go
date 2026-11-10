@@ -14,7 +14,7 @@ func TestEnsureGitignore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	added, err := EnsureGitignore(dir, []string{"/.quartermaster/", "/.claude/rules/qm/"})
+	added, err := EnsureGitignore(dir, []string{"/.qm/", "/.claude/rules/qm/"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,28 +27,28 @@ func TestEnsureGitignore(t *testing.T) {
 	if !strings.Contains(s, "node_modules/") {
 		t.Fatal("existing entry lost")
 	}
-	for _, want := range []string{gitignoreHeader, "/.quartermaster/", "/.claude/rules/qm/"} {
+	for _, want := range []string{gitignoreHeader, "/.qm/", "/.claude/rules/qm/"} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q", want)
 		}
 	}
 
 	// Idempotent: a second run adds nothing.
-	added, err = EnsureGitignore(dir, []string{"/.quartermaster/", "/.claude/rules/qm/"})
+	added, err = EnsureGitignore(dir, []string{"/.qm/", "/.claude/rules/qm/"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(added) != 0 {
 		t.Fatalf("second run added %v, want none", added)
 	}
-	if strings.Count(string(mustRead(t, dir)), "/.quartermaster/") != 1 {
+	if strings.Count(string(mustRead(t, dir)), "/.qm/") != 1 {
 		t.Fatal("entry duplicated on second run")
 	}
 }
 
 func TestEnsureGitignoreNoFile(t *testing.T) {
 	dir := t.TempDir()
-	added, err := EnsureGitignore(dir, []string{"/.quartermaster/"})
+	added, err := EnsureGitignore(dir, []string{"/.qm/"})
 	if err != nil {
 		t.Fatal(err)
 	}

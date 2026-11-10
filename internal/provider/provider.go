@@ -17,7 +17,6 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/bundle"
 	"github.com/mberwanger/quartermaster/internal/config"
-	"github.com/mberwanger/quartermaster/internal/preflight"
 )
 
 // Auth carries credentials for a remote source. Its zero value means none, and
@@ -98,7 +97,10 @@ func loadHere(dir string) (*bundle.Bundle, bool, error) {
 		return b, true, err
 	}
 	if exists(filepath.Join(dir, config.FileName)) {
-		b, err := build(dir)
+		// A source tree resolves through the same compile qm bundle build runs,
+		// so consuming a store directly and consuming its built artifact cannot
+		// diverge.
+		b, err := bundle.Compile(dir, bundle.Source{})
 		return b, true, err
 	}
 	return nil, false, nil
@@ -121,15 +123,6 @@ func singleSubdir(dir string) (string, bool) {
 		found = filepath.Join(dir, e.Name())
 	}
 	return found, found != ""
-}
-
-// build compiles a source tree in memory, the same code path qm bundle build runs.
-func build(root string) (*bundle.Bundle, error) {
-	result, err := preflight.Run(preflight.Options{Root: root})
-	if err != nil {
-		return nil, err
-	}
-	return result.Bundle, nil
 }
 
 func exists(path string) bool {

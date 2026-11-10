@@ -1,19 +1,20 @@
-package cmd
+// Package bundle holds the producer commands: the ones that scaffold, index,
+// validate, compile, explain, and publish a bundle.
+//
+// They live apart from the consumer commands because they are run somewhere
+// else, by someone else. These run in a store repository, where knowledge is
+// authored; the consumer commands run in every repository that draws from one.
+// Keeping them in separate packages makes that seam something the compiler
+// holds rather than something a reader has to infer from a file listing.
+package bundle
 
 import (
 	"github.com/spf13/cobra"
 )
 
-// bundleCmd groups the producer commands: the ones that scaffold, index,
-// validate, compile, explain, and publish a bundle. They run in a store
-// repository, a different
-// place and a different audience from the consumer commands, which stay at the
-// top level as the tool's primary surface.
-type bundleCmd struct {
-	cmd *cobra.Command
-}
-
-func newBundleCmd() *bundleCmd {
+// New builds the bundle command group. It is this package's only export: the
+// subcommands are reachable through it and nowhere else.
+func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bundle",
 		Short: "Create, check, build, and publish knowledge bundles",
@@ -32,13 +33,14 @@ Consumer commands — init, sync, verify, status — stay at the top level.`,
 	}
 
 	cmd.AddCommand(
-		newBundleInitCmd().cmd,
+		newInitCmd().cmd,
 		newBuildCmd().cmd,
 		newValidateCmd().cmd,
 		newExplainCmd().cmd,
 		newIndexCmd().cmd,
 		newPublishCmd().cmd,
+		newPullCmd().cmd,
 	)
 
-	return &bundleCmd{cmd: cmd}
+	return cmd
 }

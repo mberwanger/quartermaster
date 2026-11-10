@@ -51,7 +51,7 @@ producing a bundle with no packages in it.
 | `title` | skill and agent rendering, index listings | Renders empty |
 | `description` | every renderer, and index listings | Renders empty. This is the field an agent reads to decide whether to open a document, so an empty one is the most expensive silent loss here |
 | `supersedes`, `superseded_by` | `internal/validate/validate.go:134` | Supersede links go unchecked |
-| `type` | `internal/index/index.go:167`, and conventionally the `skills:` gate | Documents group under "Other" in listings, and a skill stops being recognized as one |
+| `type` | `internal/config`, which recognizes `skill` and `agent`, and `internal/index/index.go:167` | Documents group under "Other" in listings, and a capability stops being recognized as one. This is the field that decides what a document **is** |
 
 `id` is the only entry enforced independently of your schema. The rest degrade,
 and most of them degrade quietly.
@@ -68,14 +68,26 @@ Everything else, and more of the tool than the table suggests.
 
 **Which fields decide eligibility.** `requires:` in `bundle.yaml` names the
 fields a document must satisfy before a package may turn it into a rule. The
-fields are yours: Admiral's store gates on `status`, `provenance`, and
-`visibility`, but nothing in the tool knows those names. An omitted or empty
-`requires:` means everything qualifies.
+fields are yours: a scaffolded store gates on `status`, but nothing in the tool
+knows that name. An omitted or empty `requires:` means everything qualifies.
 
-**What counts as a skill.** The `skills:` gate is an ordinary field predicate.
-`type: [skill]` is a convention, not a rule.
+`visibility` is the exception, and it runs the other way. A restricted document
+is refused by Quartermaster itself, in `internal/bundle` and again in the package
+compiler, whether or not `requires:` mentions it. Gating on it is therefore
+allowed and does nothing, which is worse than useless in a scaffold: it reads as
+the thing keeping restricted documents out, so an author who deletes the line
+believes they have changed something. They have not.
 
-**Any field you like.** `domain`, `owner`, `tags`, `last_verified`. Quartermaster
+**What counts as a capability.** `type: skill` is a skill and `type: agent` is an
+agent, and a store that wants other words for them says so with a `skills:` or
+`agents:` predicate over any field. Declaring neither is the ordinary case.
+
+Type decides this rather than the block, because type is the one field the
+standard requires, so it is always present, and because a block is configuration
+rather than identity: `allowed-tools` and `tools` cannot be derived from anything
+else, but nothing about carrying them makes a document a capability.
+
+**Any field you like.** `domain`, `owner`, `tags`, `stale_after`. Quartermaster
 carries them through into the catalog untouched, and a consuming repository can
 filter its knowledge tree on any of them.
 

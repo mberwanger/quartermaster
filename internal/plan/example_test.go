@@ -74,22 +74,22 @@ func TestExampleBillingRepository(t *testing.T) {
 // The same document is Go-scoped under one package and always-loaded under
 // another. This is the property the walkthrough leads with.
 func TestExampleScopeIsPerConsumer(t *testing.T) {
-	scopeOf := func(t *testing.T, rulesets string) []string {
+	scopeOf := func(t *testing.T, packages string) []string {
 		t.Helper()
 		dir := exampleManifest(t, "bundles:\n"+
 			"  - source: file://{{store}}\n"+
-			"    use: ["+rulesets+"]\n"+
+			"    use: ["+packages+"]\n"+
 			"targets:\n  - claude\n")
 		r, err := Compute(dir)
 		if err != nil {
-			t.Fatalf("compute %s: %v", rulesets, err)
+			t.Fatalf("compute %s: %v", packages, err)
 		}
 		for _, d := range r.Docs {
 			if d.ID == "eng.logging" {
 				return d.Scope
 			}
 		}
-		t.Fatalf("eng.logging missing from ruleset %s", rulesets)
+		t.Fatalf("eng.logging missing from package %s", packages)
 		return nil
 	}
 

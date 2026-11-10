@@ -20,6 +20,7 @@ build/
 dist/
 completions/
 manpages/
+bundle.tar.gz
 
 # IDE
 .idea/

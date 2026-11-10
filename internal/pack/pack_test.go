@@ -174,26 +174,56 @@ func TestPatternMatchingNothingFails(t *testing.T) {
 	}
 }
 
-// Rules are gated; skills and agents are not gated the same way, because what
-// may become a rule is a different question from what is a skill.
-func TestRulesAreGated(t *testing.T) {
+// The gate governs every kind, not rules alone.
+//
+// It used to govern rules only, so a store gating on status could still ship a
+// draft skill with its tool grants to every repository whose package matched the
+// pattern. That is the wrong way round: a rule is text an agent reads, and a
+// skill is something it can be handed along with permission to run things.
+func TestTheGateGovernsEveryKind(t *testing.T) {
 	docs := append([]doc.Doc{}, store...)
-	docs = append(docs, mk("engineering.draft-thing", "concept", "status", "draft"))
+	docs = append(docs,
+		mk("engineering.draft-thing", "concept", "status", "draft"),
+		mk("skills.data.draft-thing", "skill", "status", "draft"),
+		mk("agents.draft-thing", "agent", "status", "draft"),
+	)
 
 	o := opts()
 	o.Requires = mustGate(t, "status: [active]\n")
 
-	if _, err := Compile(parse(t, "p:\n  rules: [engineering.draft-thing]\n"), docs, o); err == nil {
-		t.Error("naming a draft as a rule should fail")
+	// Naming a draft outright fails, whatever kind it is named as.
+	named := map[string]string{
+		"rules":  "p:\n  rules: [engineering.draft-thing]\n",
+		"skills": "p:\n  skills: [skills.data.draft-thing]\n",
+		"agents": "p:\n  agents: [agents.draft-thing]\n",
+	}
+	for kind, body := range named {
+		if _, err := Compile(parse(t, body), docs, o); err == nil {
+			t.Errorf("naming a draft in %s should fail", kind)
+		}
 	}
 
-	got, err := Compile(parse(t, "p:\n  rules: [engineering.**]\n"), docs, o)
+	// A pattern skips it instead, so one draft cannot break every package that
+	// globs its neighbours. That holds for each kind too.
+	got, err := Compile(parse(t, "p:\n  rules: [engineering.**]\n  skills: [skills.**]\n  agents: [agents.**]\n"), docs, o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range got[0].Rules {
-		if r.ID == "engineering.draft-thing" {
-			t.Error("a pattern selected a document the gate rejects")
+	for _, sel := range []struct {
+		kind Kind
+		docs []Doc
+	}{
+		{KindRule, got[0].Rules},
+		{KindSkill, got[0].Skills},
+		{KindAgent, got[0].Agents},
+	} {
+		for _, d := range sel.docs {
+			if strings.HasSuffix(d.ID, ".draft-thing") {
+				t.Errorf("a %s pattern selected %s, which the gate rejects", sel.kind, d.ID)
+			}
+		}
+		if len(sel.docs) == 0 {
+			t.Errorf("no %s selected at all; the pattern is not exercising the gate", sel.kind)
 		}
 	}
 }

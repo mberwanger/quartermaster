@@ -19,9 +19,9 @@ func buildFixture(t *testing.T) *Bundle {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	rs, err := pack.Load(filepath.Join(fixture, cfg.Packages))
+	rs, err := pack.Load(fixture, cfg.Packages)
 	if err != nil {
-		t.Fatalf("load rulesets: %v", err)
+		t.Fatalf("load packages: %v", err)
 	}
 
 	b, err := Build(Options{Root: fixture, Config: cfg, Packages: rs, Repo: "example", Commit: "deadbeef"})
@@ -88,7 +88,7 @@ func TestBuildPropagatesRootOKFVersion(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load config: %v", err)
 			}
-			packages, err := pack.Load(filepath.Join(storeRoot, cfg.Packages))
+			packages, err := pack.Load(storeRoot, cfg.Packages)
 			if err != nil {
 				t.Fatalf("load packages: %v", err)
 			}
@@ -113,7 +113,7 @@ func TestBuildExcludesRestrictedFromTree(t *testing.T) {
 	}
 }
 
-func TestBuildRulesetScopeResolution(t *testing.T) {
+func TestBuildPackageScopeResolution(t *testing.T) {
 	b := buildFixture(t)
 
 	byName := map[string]Compiled{}
@@ -123,7 +123,7 @@ func TestBuildRulesetScopeResolution(t *testing.T) {
 
 	core, ok := byName["core"]
 	if !ok || len(core.Rules) != 2 {
-		t.Fatalf("core ruleset = %+v, want 2 docs", core)
+		t.Fatalf("core package = %+v, want 2 docs", core)
 	}
 	// eng.logging picks up its document-default scope; eng.errors stays
 	// unscoped (resident).
@@ -158,5 +158,5 @@ func TestBuildDeterministic(t *testing.T) {
 	}
 }
 
-// Compiled is re-exported from the ruleset package for brevity in this test.
+// Compiled is re-exported from the package package for brevity in this test.
 type Compiled = pack.Compiled

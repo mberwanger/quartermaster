@@ -106,10 +106,10 @@ func TestRulesDedupeAndOrder(t *testing.T) {
 	}
 }
 
-func TestRulesUnknownRuleset(t *testing.T) {
+func TestRulesUnknownPackage(t *testing.T) {
 	b := openFixture(t)
 	if _, err := b.Rules("nope"); err == nil {
-		t.Fatal("expected an error for an unknown ruleset")
+		t.Fatal("expected an error for an unknown package")
 	}
 }
 
@@ -127,10 +127,10 @@ func TestAuthOptions(t *testing.T) {
 	}
 }
 
-func TestRulesetsAndDigest(t *testing.T) {
+func TestPackagesAndDigest(t *testing.T) {
 	b := openFixture(t)
 	if got := b.Packages(); !slices.Equal(got, []string{"core", "go-service"}) {
-		t.Fatalf("rulesets = %v", got)
+		t.Fatalf("packages = %v", got)
 	}
 	if !strings.HasPrefix(b.Digest(), "sha256:") {
 		t.Fatalf("digest = %q", b.Digest())

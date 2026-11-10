@@ -4,8 +4,7 @@ title: Representing money
 description: Money is an integer of minor units plus a currency. Never a float, never a bare number, and never compared across currencies.
 domain: billing
 type: policy
-status: active
-provenance: decided
+status: stable
 owner: billing
 tags: [money, correctness]
 ---

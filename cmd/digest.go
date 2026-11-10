@@ -76,7 +76,7 @@ in one place across runs either way, so the corpus still spans repositories;
 	cmd.Flags().BoolVar(&v.dryRun, "dry-run", false, "Report what would be digested, write nothing")
 	cmd.Flags().IntVar(&v.limit, "limit", 0, "Stop after this many sessions (0 means all)")
 
-	cmd.AddCommand(newDigestListCmd(), newDigestAnnotateCmd())
+	cmd.AddCommand(newDigestListCmd().cmd, newDigestAnnotateCmd().cmd)
 
 	v.cmd = cmd
 	return v
@@ -84,12 +84,15 @@ in one place across runs either way, so the corpus still spans repositories;
 
 // newDigestListCmd lists sessions and what is still missing from their records,
 // which is what lets something else drive the part this cannot do alone.
-func newDigestListCmd() *cobra.Command {
-	var (
-		all     bool
-		dir     string
-		pending bool
-	)
+type digestListCmd struct {
+	cmd     *cobra.Command
+	all     bool
+	dir     string
+	pending bool
+}
+
+func newDigestListCmd() *digestListCmd {
+	v := &digestListCmd{}
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -103,37 +106,42 @@ qm digest annotate.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			want := ""
-			if !all {
-				want = repo.Identity(dir)
-			}
-			sources, err := backfillSources(time.Time{}, want)
-			if err != nil {
-				return err
-			}
-
-			out := cmd.OutOrStdout()
-			for _, src := range sources {
-				f, err := facet.Load(src.ID)
-				if err != nil {
-					continue // not digested yet; qm digest is what fixes that
-				}
-				// Pending means nobody has read it, not that the record has no
-				// questions. Structural extraction fills in the ones a person
-				// was asked outright, and those arrive without anyone looking.
-				if pending && f.Source == facet.SourceModel {
-					continue
-				}
-				fmt.Fprintf(out, "%s\t%s\t%s\n", f.Session, f.Repo, src.Path)
-			}
-			return nil
+			return v.run(cmd.OutOrStdout())
 		},
 	}
 
-	cmd.Flags().BoolVar(&all, "all", false, "Every repository on this machine")
-	cmd.Flags().StringVar(&dir, "dir", ".", "Repository to list")
-	cmd.Flags().BoolVar(&pending, "pending", false, "Only records still missing their questions")
-	return cmd
+	cmd.Flags().BoolVar(&v.all, "all", false, "Every repository on this machine")
+	cmd.Flags().StringVar(&v.dir, "dir", ".", "Repository to list")
+	cmd.Flags().BoolVar(&v.pending, "pending", false, "Only records still missing their questions")
+
+	v.cmd = cmd
+	return v
+}
+
+func (v *digestListCmd) run(out io.Writer) error {
+	want := ""
+	if !v.all {
+		want = repo.Identity(v.dir)
+	}
+	sources, err := backfillSources(time.Time{}, want)
+	if err != nil {
+		return err
+	}
+
+	for _, src := range sources {
+		f, err := facet.Load(src.ID)
+		if err != nil {
+			continue // not digested yet; qm digest is what fixes that
+		}
+		// Pending means nobody has read it, not that the record has no
+		// questions. Structural extraction fills in the ones a person was asked
+		// outright, and those arrive without anyone looking.
+		if v.pending && f.Source == facet.SourceModel {
+			continue
+		}
+		fmt.Fprintf(out, "%s\t%s\t%s\n", f.Session, f.Repo, src.Path)
+	}
+	return nil
 }
 
 // newDigestAnnotateCmd attaches what a session was trying to establish.
@@ -143,8 +151,14 @@ qm digest annotate.`,
 // ran here or in an agent that read the transcript itself. What it does care
 // about is that the result fits the closed schema, because an open one cannot be
 // clustered and a vague one is mush.
-func newDigestAnnotateCmd() *cobra.Command {
-	return &cobra.Command{
+type digestAnnotateCmd struct {
+	cmd *cobra.Command
+}
+
+func newDigestAnnotateCmd() *digestAnnotateCmd {
+	v := &digestAnnotateCmd{}
+
+	cmd := &cobra.Command{
 		Use:   "annotate <session-id>",
 		Short: "Attach the questions a session was answering",
 		Long: `Attach the questions a session was trying to answer, read as JSON on stdin.
@@ -154,7 +168,7 @@ Either a bare array or an object with a "questions" key is accepted:
   {"questions": [
     {"question": "why does the envelope keep the raw payload",
      "resolution": "source_read", "resolved": true, "tool_calls": 14,
-     "store_docs_read": ["engineering.eventing-conventions"]}
+     "knowledge_docs_read": ["engineering.eventing-conventions"]}
   ]}
 
 Resolution is one of ` + strings.Join(facet.Resolutions, ", ") + `.
@@ -165,27 +179,33 @@ the transcript shows a session did is not a model's to revise.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			f, err := facet.Load(args[0])
-			if err != nil {
-				return fmt.Errorf("no record for session %q; digest it first", args[0])
-			}
-
-			questions, err := readQuestions(cmd.InOrStdin())
-			if err != nil {
-				return err
-			}
-			if err := f.Annotate(questions); err != nil {
-				return err
-			}
-			if err := facet.Save(*f); err != nil {
-				return err
-			}
-
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "annotated %s with %d question(s)\n",
-				f.Session, len(questions))
-			return err
+			return v.run(cmd.OutOrStdout(), cmd.InOrStdin(), args[0])
 		},
 	}
+
+	v.cmd = cmd
+	return v
+}
+
+func (v *digestAnnotateCmd) run(out io.Writer, in io.Reader, session string) error {
+	f, err := facet.Load(session)
+	if err != nil {
+		return fmt.Errorf("no record for session %q; digest it first", session)
+	}
+
+	questions, err := readQuestions(in)
+	if err != nil {
+		return err
+	}
+	if err := f.Annotate(questions); err != nil {
+		return err
+	}
+	if err := facet.Save(*f); err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintf(out, "annotated %s with %d question(s)\n", f.Session, len(questions))
+	return err
 }
 
 // readQuestions accepts either shape, because a caller piping a model's output
@@ -508,7 +528,7 @@ func summarize(b *strings.Builder) error {
 		if f.DiscoverySpan != nil {
 			spans = append(spans, *f.DiscoverySpan)
 		}
-		reads += len(f.StoreReads)
+		reads += len(f.KnowledgeReads)
 		if len(f.Bundles) > 0 {
 			withBundles++
 		}
@@ -525,7 +545,7 @@ func summarize(b *strings.Builder) error {
 		fmt.Fprintf(b, "  discovery span   median %d tool calls before the first edit (%d session(s) measured)\n",
 			spans[len(spans)/2], len(spans))
 	}
-	fmt.Fprintf(b, "  store reads      %d\n", reads)
+	fmt.Fprintf(b, "  knowledge reads  %d\n", reads)
 
 	// What a record still lacks is the actionable part, so it goes above the
 	// caveats rather than below them.

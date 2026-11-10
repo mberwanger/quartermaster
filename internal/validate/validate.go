@@ -43,6 +43,25 @@ func (r Result) OK() bool {
 	return len(r.Findings) == 0
 }
 
+// Error reports findings that make a store invalid, and so stop it compiling.
+//
+// It carries the whole result rather than the first finding, because a person
+// fixing a store wants every problem at once: findings are independent, and
+// reporting them one build at a time turns one pass into five.
+type Error struct {
+	Result Result
+}
+
+func (e *Error) Error() string {
+	var report strings.Builder
+	for _, finding := range e.Result.Findings {
+		fmt.Fprintf(&report, "%s: %s\n", finding.Path, finding.Message)
+	}
+	fmt.Fprintf(&report, "\n%d finding(s) across %d checked doc(s)",
+		len(e.Result.Findings), e.Result.Checked)
+	return report.String()
+}
+
 // outputSkip keeps validation from reading a previous build's output.
 var outputSkip = []string{"dist"}
 
@@ -102,8 +121,8 @@ func Run(root string, cfg *config.Config) (Result, error) {
 		// store, which is the point: a team adds the fields it wants and
 		// Quartermaster does not care. But a store that drops id from its own
 		// required list would validate clean and then fail far away, when a
-		// ruleset resolves to nothing or a catalog fills with empty keys.
-		// Everything downstream joins on this: rulesets reference documents by
+		// package resolves to nothing or a catalog fills with empty keys.
+		// Everything downstream joins on this: packages reference documents by
 		// id, the usage log records it, and a facet cites it months later.
 		//
 		// So the schema is checked against the store's rules, and this is checked

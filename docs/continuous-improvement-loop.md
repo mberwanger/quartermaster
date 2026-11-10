@@ -4,7 +4,7 @@ type: feature-spec
 status: draft
 owner: martin
 verified_against_code: 2026-07-24
-description: Session telemetry capture, local analysis, and evidence-backed proposals that populate and prune the knowledge store, closing the loop between agent sessions and bundle contents.
+description: Session telemetry capture, local analysis, and evidence-backed proposals that populate and prune the store, closing the loop between agent sessions and bundle contents.
 ---
 
 # Quartermaster Continuous Improvement Loop
@@ -20,10 +20,16 @@ What the verification changed, in order of consequence:
 1. **Open question 1 is closed.** Skills and agents are already document types, and rules are already a selection over documents rather than a type. Section 6.4 was wrong about the enum and about the gap. This unblocks implementation.
 2. **The distiller agent does not exist.** Section 2.5 treated it as reusable. It is a name in a target-state diagram. Section 7's faster path to a corpus went with it.
 3. **Three worktree defects were live in shipped code**, not merely risks for the new code. They are fixed as of this revision. See section 4.11.
-4. **`~/.quartermaster/cache/` is already taken** by the bundle cache. The draft proposed the same path for analyzer memoization.
-5. The bundle carries `rulesets.json` and `store.md`, which the draft omitted. `rulesets.json` is where rule-level telemetry has to join.
+4. **`~/.qm/cache/` is already taken** by the bundle cache. The draft proposed the same path for analyzer memoization.
+5. The bundle carries a compiled selection file, which the draft omitted. It is where rule-level telemetry has to join, because no document is a rule on its own.
 
-**Superseded since this verification.** Everything below still describes the `d7158c3` state accurately, but the code has since moved past it in three ways this spec should not be read as contradicting: the `ruleset`/`rulesets.json`/`--ruleset` vocabulary throughout is now `package`/`packages.json`/`--package` (rulesets were folded into the broader package concept, which also selects skills and agents); the bundle artifact format is `0.4`, not the `0.3` cited in section 2.2, to carry that superset; and a freshly scaffolded store's root `index.md` now declares OKF `0.2` (`internal/index.CurrentOKFVersion`), not the `0.1` cited alongside it. None of this changes the spec's reasoning, only the nouns and version numbers it cites.
+**Vocabulary swept to current on 2026-08-09**, at `f9e0a36`. This was a targeted sweep of names, version numbers, and file citations, not a second full verification: `verified_against_code` still reads 2026-07-24, and any claim not listed below carries exactly the confidence that date gives it. The reasoning is unchanged. What moved:
+
+- The `ruleset`/`rulesets.json`/`--ruleset` vocabulary is now `package`/`packages.json`/`--package`. Rulesets were folded into the broader package concept, which selects skills and agents under one name as well as rules. A package is still a selection rather than a type, so every argument the spec makes about rule membership survives the rename intact.
+- The bundle artifact format is `0.4`, not the `0.3` first cited in section 2.2, to carry that superset. A freshly scaffolded store's root `index.md` declares OKF `0.2` (`internal/index.CurrentOKFVersion`), not `0.1`.
+- `store.md`, the whole-store concatenation for a consumer that stuffs a prompt, no longer exists. It is not in the artifact and not in the digest.
+
+One thing deliberately not swept: the facet record in section 4.5 is the schema as designed, and the shipped record is `facet.Version` 2, which diverges from it (`knowledge_*` spellings, `tool_calls`, `discovery_span`, `prompts`, `human_asks`, and no `questions[]` filled by derivation). Section 11 records what shipped and why. Read 4.5 as intent and `internal/facet` as fact.
 
 ---
 
@@ -62,13 +68,13 @@ The counterweight is that dynamic context does compound where static context doe
 
 Quartermaster (`qm`) is a Go CLI plus a per-repo YAML manifest. It both compiles bundles and consumes them, which is why profiles were dropped from an earlier design. A producer can emit different bundles rather than a consumer selecting a profile at install time.
 
-`qm init` (`cmd/init.go`) resolves one or more sources, writes `.quartermaster.yaml`, adds gitignore entries, installs git hooks, and runs the first sync. `--source` is repeatable and ordered, and order is precedence: on an id collision the later source wins (`cmd/init.go:51`). So is `--ruleset`, whose requested order is deliberately preserved rather than sorted, because ruleset order is also precedence. Targets are detected from repository markers (`.claude`, `CLAUDE.md`, `.cursor`, `AGENTS.md`) and default to `claude`.
+`qm init` (`cmd/init.go`) resolves one or more sources, writes `.qm.yaml`, adds gitignore entries, installs git hooks, and runs the first sync. `--source` is repeatable and ordered, and order is precedence: on an id collision the later source wins (`cmd/init.go:54`). So is `--package` (`cmd/init.go:55`), whose requested order is deliberately preserved rather than sorted, because package order is also precedence. Targets are detected from repository markers (`.claude`, `CLAUDE.md`, `.cursor`, `AGENTS.md`) and default to `claude`.
 
 **Correction to the first draft.** `qm init` does not configure usage telemetry in any active sense. It writes `telemetry: true` into the manifest and stops. The hooks it installs are git hooks, `post-checkout` and `post-merge`, which re-sync materialized output that git does not track. **No harness hook is installed by any code path.** The `PostToolUse` wiring that feeds the usage log is a snippet the operator pastes into `.claude/settings.json` by hand, documented in `README.md`.
 
 That matters for section 4.2, which needs a `SessionEnd` hook. There is no existing harness-hook installer to extend. It is new work, and it is the first time Quartermaster will write into a harness settings file.
 
-### 2.2 The knowledge store
+### 2.2 The store
 
 `admiral-knowledge` is a plain markdown repository following the Open Knowledge Format (OKF), Google Cloud's vendor-neutral spec for representing knowledge as a directory of markdown files with YAML frontmatter. In OKF, a concept is one file, its identity is its path with the `.md` suffix removed, `index.md` files are optional and carry no frontmatter, and concepts cross-link with ordinary markdown links.
 
@@ -78,18 +84,17 @@ An earlier decision (`0003 additive-over-okf`) established that anything agents 
 
 | Path | Contents |
 |---|---|
-| `meta.json` | `format`, `okf_version`, `name`, `source{repo,commit}`, `docs`, `files`, `rulesets`, `controls`, `store_bytes`, `digest` |
+| `meta.json` | `format`, `okf_version`, `name`, `source{repo,commit}`, `docs`, `files`, `packages`, `controls`, `checked`, `store_bytes`, `digest` |
 | `catalog.json` | Every distributed document's id, path, and whole frontmatter |
-| `rulesets.json` | Compiled rulesets: named ordered lists of document references with resolved scope |
-| `store.md` | Every document concatenated in path order, for a consumer that stuffs a prompt |
+| `packages.json` | Compiled packages: named selections of rules, skills, and agents, with scope resolved |
 | `store/` | The store tree, verbatim |
 | `controls/` | Canary and control fixtures, partitioned out of everything an agent grounds on |
 
-Bundle format version is `0.3` (`internal/bundle/bundle.go:41`); the OKF version it declares is `0.1`.
+Bundle format version is `0.4` (`internal/bundle/bundle.go:41`); the OKF version a scaffolded store declares is `0.2` (`internal/index.CurrentOKFVersion`).
 
-Two properties of the digest matter downstream. It is computed over the catalog, the compiled rulesets, `store.md`, and every carried file, and it **excludes the source commit** (`internal/bundle/bundle.go:428`), so two builds of identical content from different commits agree. That is what makes it usable as a cache key and an eval pin. It also means the digest alone cannot distinguish two builds of the same content, and only `source.commit` can. Record both.
+Two properties of the digest matter downstream. It is computed over the catalog, the compiled packages, and every carried file, and it **excludes the source commit** (`internal/bundle/bundle.go:456`), so two builds of identical content from different commits agree. That is what makes it usable as a cache key and an eval pin. It also means the digest alone cannot distinguish two builds of the same content, and only `source.commit` can. Record both.
 
-`rulesets.json` is the file the first draft omitted and the one section 4.7 depends on. A rule is not a property of a document. It is membership in a compiled ruleset. Nothing else in the artifact can tell you whether a document was resident in a session.
+`packages.json` is the file the first draft omitted and the one section 4.7 depends on. A rule is not a property of a document. It is membership in a compiled package. Nothing else in the artifact can tell you whether a document was resident in a session.
 
 ### 2.3 The three artifact types and their consumers
 
@@ -113,13 +118,13 @@ A refinement the code adds: residency is not binary per document. The `claude` t
 
 ### 2.4 Cost model, which is not what it first appears
 
-Knowledge lives on disk and is not loaded into context, so it carries no resident-token cost. The resident slice is rules, plus skill metadata, plus whatever pointer text sits in the rules file. Quartermaster already tracks this against `budget.resident_bytes` and warns on `sync` and `status`. The real store measures 2471 B resident under the `voice` and `voice-authoring` rulesets.
+Knowledge lives on disk and is not loaded into context, so it carries no resident-token cost. The resident slice is rules, plus skill metadata, plus whatever pointer text sits in the rules file. Quartermaster already tracks this against `budget.resident_bytes` and warns on `sync` and `status`. The real store measures 2471 B resident under the `voice` and `voice-authoring` packages.
 
 The on-disk store still has a cost, but a different one. It is read amplification and misretrieval. An agent that reads eleven documents before finding the useful one paid real tokens and real wall-clock time. An agent that reads a plausible but wrong document paid worse, because it stopped looking and proceeded confidently. The lever is index quality and description discriminability, not payload size. Two documents whose descriptions do not clearly separate will cost reads forever.
 
-**Critical dependency.** Nothing auto-loads `index.md`. The OKF spec describes it as a navigation aid for progressive disclosure, and no harness treats a file by that name as special. The only things entering a session unbidden are the rules file, nested rules files where the harness supports them, and skill frontmatter. Therefore the rules file must name the store root and state when consulting it is expected. Without those few lines the entire knowledge store is invisible and telemetry will report zero reads, which reads as a quality problem when it is actually a wiring problem.
+**Critical dependency.** Nothing auto-loads `index.md`. The OKF spec describes it as a navigation aid for progressive disclosure, and no harness treats a file by that name as special. The only things entering a session unbidden are the rules file, nested rules files where the harness supports them, and skill frontmatter. Therefore the rules file must name the store root and state when consulting it is expected. Without those few lines the entire store is invisible and telemetry will report zero reads, which reads as a quality problem when it is actually a wiring problem.
 
-The `agents-md` target already renders a pointer block naming the bundle digest, the rulesets, and the rule listing. Confirm before the baseline window opens that whichever target a measured repository uses names the knowledge root too. A two-week baseline measured through a store nothing pointed at measures nothing.
+The `agents-md` target already renders a pointer block naming the bundle digest, the packages, and the rule listing. Confirm before the baseline window opens that whichever target a measured repository uses names the knowledge root too. A two-week baseline measured through a store nothing pointed at measures nothing.
 
 ### 2.5 What already exists elsewhere, corrected
 
@@ -214,7 +219,7 @@ Both hooks need Quartermaster to write into a harness settings file, which it ha
 User scoped, not repository scoped, because the interesting signal is cross-repository even on one machine.
 
 ```
-~/.quartermaster/
+~/.qm/
   cache/<kind>/<digest>/     IN USE: resolved bundles, keyed by digest   (QM_CACHE_DIR)
   usage/<YYYY-MM>.jsonl      IN USE: per-read open events                (QM_USAGE_DIR)
   spool/pending.jsonl        new: append-only session pointers
@@ -271,11 +276,11 @@ Keep the schema closed-form. A vague extraction prompt yields mush.
       "resolved": true,
       "tool_calls": 14,
       "elapsed_seconds": 190,
-      "store_docs_read": ["engineering/eventing-conventions"],
+      "knowledge_docs_read": ["engineering/eventing-conventions"],
       "arrived_via": "index"
     }
   ],
-  "store_reads": [
+  "knowledge_reads": [
     { "doc_id": "...", "arrived_via": "index|direct", "followed_by_further_exploration": true }
   ],
   "resident_rules": ["voice.base"],
@@ -284,13 +289,13 @@ Keep the schema closed-form. A vague extraction prompt yields mush.
 }
 ```
 
-Resolution values are `store_read`, `source_read`, `bash_exploration`, `asked_human`, and `unresolved`.
+Resolution values are `knowledge_read`, `source_read`, `bash_exploration`, `asked_human`, and `unresolved`.
 
 Three changes from the first draft, all forced by verification.
 
 - `repo` is the remote-derived identity, never a path. The shape shown is what `repo.Identity` returns.
 - `bundle_versions` carries `commit` alongside `digest`, because the digest deliberately excludes the commit (section 2.2) and two different builds of one content tree share a digest.
-- `resident_rules` is new. It is the ruleset membership resolved through scope, and without it section 4.7 cannot produce any rule signal at all. It comes from `rulesets.json` plus the target's scope rendering, not from the documents.
+- `resident_rules` is new. It is the package membership resolved through scope, and without it section 4.7 cannot produce any rule signal at all. It comes from `packages.json` plus the target's scope rendering, not from the documents.
 
 ### 4.6 Analysis
 
@@ -329,9 +334,9 @@ Each artifact type has its own verb, and the telemetry must reflect that.
 |---|---|---|---|
 | Knowledge | Read, and no further exploration followed | Never read, or read and exploration continued | `catalog.json`, usage log |
 | Skill | Invoked, and the task completed | Never invoked, or invoked and abandoned | `type: skill` in frontmatter |
-| Rule | Complied with | Violated, or never applicable | `rulesets.json` plus rendered scope |
+| Rule | Complied with | Violated, or never applicable | `packages.json` plus rendered scope |
 
-The join column is the correction. Skills and agents are document types and can be found in the catalog. **Rules cannot**, because no document is a rule. A document becomes a rule by being named in a compiled ruleset, and `voice.base` is `type: policy` in the store. Any implementation that looks for `type: rule` will find nothing and report every rule as unused.
+The join column is the correction. Skills and agents are document types and can be found in the catalog. **Rules cannot**, because no document is a rule. A document becomes a rule by being named in a compiled package, and `voice.base` is a concept in the store. Any implementation that looks for `type: rule` will find nothing and report every rule as unused.
 
 `qm stats` already refuses to propose demotions for exactly this reason (`cmd/stats.go:124`): a resident rule is delivered by the harness rather than opened, so its absence from the read log means nothing. Rule signals must come from the session, through compliance and applicability, not from the usage log. A scoped rule adds a second trap: it is only resident when a matching path is open, so "never applicable" and "never loaded" are different findings and only the first is a removal argument.
 
@@ -341,7 +346,7 @@ The join column is the correction. Skills and agents are document types and can 
 
 Evidence in the proposal body is what makes weekly review fast enough that a human will actually do it.
 
-A draft must satisfy the store's schema or it will fail CI on arrival, and the schema requires `id`, `title`, `description`, `domain`, `type`, `status`, `provenance`, and `owner`. Emit `status: draft` and `provenance: asserted`, which is honest for a machine-generated candidate and, under the store's `requires:`, keeps it out of every ruleset until a human promotes it. That is the correct default: a proposal should be retrievable and reviewable without becoming resident in twenty-one repositories.
+A draft must satisfy the store's schema or it will fail CI on arrival, and the schema requires `id`, `title`, `description`, `domain`, `type`, `status`, `provenance`, and `owner`. Emit `status: draft` and `provenance: asserted`, which is honest for a machine-generated candidate and, under the store's `requires:`, keeps it out of every package until a human promotes it. That is the correct default: a proposal should be retrievable and reviewable without becoming resident in twenty-one repositories.
 
 **Future path, not v1.** Bundle `meta.json` records the source repository and commit, so a later `qm propose` is straightforward: read `meta.json`, learn which repository produced the installed bundle, fetch it to a scratch directory, branch, write the draft, push using the developer's own git credentials, and open a PR. Read from a compiled artifact, write to the source it names. No service is required for this, now or ever.
 
@@ -349,7 +354,7 @@ This requires one schema addition to `meta.json`, an optional contribute target.
 
 ### 4.9 Local overlay tier
 
-A personal knowledge store alongside the pulled bundle, realized as an additional source. `qm init --source` is repeatable and ordered, so this needs no new mechanism, and a `file://` source can point at a source tree that `qm sync` builds on the fly, which is exactly the authoring inner loop a staging tier wants.
+A personal store alongside the pulled bundle, realized as an additional source. `qm init --source` is repeatable and ordered, so this needs no new mechanism, and a `file://` source can point at a source tree that `qm sync` builds on the fly, which is exactly the authoring inner loop a staging tier wants.
 
 The purpose is a staging tier where a document proves itself before anyone else is asked to review it. The risk, correctly identified, is that an uncurated local store grows idiosyncratic to one developer and turns promotion into a single large low-quality proposal.
 
@@ -378,7 +383,7 @@ One consequence to accept rather than fix: log lines written before this change 
 
 **Harness hooks.** Still undecided, and unlike git hooks they are not shared automatically: harness hooks live in project-local settings and are per-worktree unless configured at user level. Decide this deliberately rather than discovering it later, because a worktree that silently records nothing is worse than one that records twice. Whatever is decided, `qm status` should be able to say whether the current worktree is actually recording.
 
-**Materialization.** Writing full bundle content into every worktree duplicates storage and lets copies drift when worktrees are initialized at different times. The content-addressed cache at `~/.quartermaster/cache` already exists and already deduplicates the download across repositories; materialization copies out of it into each worktree. Copying rather than symlinking is correct, since an agent editing what it believes is a local file must not mutate every other worktree.
+**Materialization.** Writing full bundle content into every worktree duplicates storage and lets copies drift when worktrees are initialized at different times. The content-addressed cache at `~/.qm/cache` already exists and already deduplicates the download across repositories; materialization copies out of it into each worktree. Copying rather than symlinking is correct, since an agent editing what it believes is a local file must not mutate every other worktree.
 
 **Concurrency.** Worktrees exist largely so several agent sessions can run at once, which means simultaneous spool appends. Keep the SessionEnd record small enough to land in a single write and append with `O_APPEND` so concurrent writes do not interleave. The usage log already takes this approach and tolerates a torn line by skipping it rather than failing the file, which is the right precedent. Lock `qm digest` and keep it idempotent by session identifier, because concurrent runs will overlap eventually.
 
@@ -439,14 +444,14 @@ Steps 1 through 3 have been run. Twenty-two documents carry frontmatter.
 
 | Field | Docs | Consumer that branches |
 |---|---|---|
-| `id` | 22 | Rulesets, catalog, usage log, link checking. Hard contract |
+| `id` | 22 | Packages, catalog, usage log, link checking. Hard contract |
 | `description` | 22 | Rendered into every rule, skill, agent, and index listing |
 | `title` | 22 | Skill and agent rendering, index generation |
-| `type` | 22 | `skills: type: [skill]` in bundle.yaml, index grouping, freshness windows |
+| `type` | 22 | Skill and agent recognition, index grouping, freshness windows |
 | `status` | 22 | `requires:` gate, via `internal/gate` |
 | `provenance` | 22 | `requires:` gate |
 | `visibility` | 18 | `requires:` gate, plus a hard exclusion in `bundle.Build` and in `qm bundle explain` |
-| `scope` | 3 | Ruleset scope resolution, rendered as `paths:` or `globs:` by the target |
+| `scope` | 3 | Package scope resolution, rendered as `paths:` or `globs:` by the target |
 | `skill` | 3 | Skill rendering: name and allowed-tools |
 | `agent` | 1 | Agent rendering, and the `bypassPermissions` refusal in `bundle.Build` |
 | `supersedes` | 4 | Validator link check only |
@@ -474,11 +479,11 @@ Applying section 6.2 to that table: `capability` and `resource` are clean deleti
 
 The actual enum is nine values, not seven: `concept`, `reference`, `runbook`, `decision`, `guide`, `policy`, `skill`, `agent`, `strategy`.
 
-The draft asserted that "there is no type for a rule or a skill". Skills and agents are types, and both are branched on. `bundle.yaml` declares `skills: type: [skill]`, which is what makes a skill a directory whose sibling files travel with it as assets exempt from the frontmatter rule. `internal/plan/skill.go` and `internal/plan/agent.go` render them into harness-specific files, and `bundle.Build` refuses to distribute an agent declaring `permission-mode: bypassPermissions`.
+The draft asserted that "there is no type for a rule or a skill". Skills and agents are types, and both are branched on. A document declaring `type: skill` is a skill, which is what makes it a directory whose sibling files travel with it as assets exempt from the frontmatter rule; a store declares `skills:` in `bundle.yaml` only to recognize a capability some other way, as a predicate over any frontmatter field. `internal/plan/skill.go` and `internal/plan/agent.go` render them into harness-specific files, and `bundle.Build` refuses to distribute an agent declaring `permission-mode: bypassPermissions`.
 
-There is no `rule` type by design rather than by omission. **A rule is a selection, not a kind of document.** Rulesets name document ids, are compiled at build time against `requires:`, and hold no prose. `voice.base` is `type: policy` and becomes a rule purely by being named in the `voice` ruleset. Deleting every ruleset removes injection and removes no knowledge.
+There is no `rule` type by design rather than by omission. **A rule is a selection, not a kind of document.** Packages name document ids, are compiled at build time against `requires:`, and hold no prose. `voice.base` becomes a rule purely by being named in the `voice` package. Deleting every package removes injection and removes no knowledge.
 
-So the draft's recommended option, rules and skills as store documents inheriting eviction, provenance, trust decay, the grounding gate, and the merge gate, is already built and shipped. The refinement is that residency is expressed as selection rather than as type, which is a better answer than the one proposed: a document can be resident in one repository's ruleset and merely retrievable in another without being two documents.
+So the draft's recommended option, rules and skills as store documents inheriting eviction, provenance, trust decay, the grounding gate, and the merge gate, is already built and shipped. The refinement is that residency is expressed as selection rather than as type, which is a better answer than the one proposed: a document can be resident in one repository's package and merely retrievable in another without being two documents.
 
 The two orthogonal axes the draft identified are still real, and the ones that remain muddled are `guide`, `policy`, and `strategy`.
 
@@ -487,7 +492,7 @@ The two orthogonal axes the draft identified are still real, and the ones that r
 
 **Resolved 2026-07-24, and recorded as `records.frontmatter-reduced-to-what-is-read`.** The enum is five values: `concept`, `reference`, `record`, `skill`, `agent`.
 
-`runbook`, `guide`, and `strategy` folded into `reference` and `concept`, none having any documents. `policy` folded into `concept`, which is the change worth explaining: it was the one value with documents behind it, and it still did not survive. What it was trying to say is "this document is meant to be pushed at you," and pushing is decided by ruleset membership, the only place that can act on it. A policy nobody named in a ruleset is a concept with a firmer tone. `voice.base` is now a concept and is still a rule.
+`runbook`, `guide`, and `strategy` folded into `reference` and `concept`, none having any documents. `policy` folded into `concept`, which is the change worth explaining: it was the one value with documents behind it, and it still did not survive. What it was trying to say is "this document is meant to be pushed at you," and pushing is decided by package membership, the only place that can act on it. A policy nobody named in a package is a concept with a firmer tone. `voice.base` is now a concept and is still a rule.
 
 `decision` became `record`, because every document in a store is downstream of a decision, so the word separated nothing. What the type marks is a write rule: this is the one kind of document where the repair for being wrong is to write a new one rather than edit this one. That is also the property the freshness audit keys on, since a document that must not be edited cannot go stale.
 
@@ -495,7 +500,7 @@ The required set is six: `id`, `title`, `description`, `type`, `status`, `proven
 
 ### 6.5 Fields with new or changed jobs
 
-- **Identifier.** Once facet records reference documents, this becomes a hard contract rather than a convenience. It already is one in three places: rulesets reference documents by id, the usage log records id rather than path, and the catalog is keyed on it. Pin it before moving anything else. It must survive file moves, which is the argument for keeping it distinct from the OKF path identity.
+- **Identifier.** Once facet records reference documents, this becomes a hard contract rather than a convenience. It already is one in three places: packages reference documents by id, the usage log records id rather than path, and the catalog is keyed on it. Pin it before moving anything else. It must survive file moves, which is the argument for keeping it distinct from the OKF path identity.
 - **Description.** The highest-value field in the schema, because it is what an agent reads to decide whether to open a document. It is capped at 320 characters and is rendered into every skill and agent file and every index listing. It deserves a quality bar and possibly a lint check, since non-discriminating descriptions cost reads permanently.
 - **Provenance.** Gains a second consumer as a retrieval filter. See section 7.
 - **Visibility.** With operator bundles and agent bundles emitted from one store, this becomes the composition control, meaning which bundle a document lands in. It currently has two values and one of them is unused. Worth keeping, worth extending, and worth renaming to state what it now does.
@@ -509,7 +514,7 @@ Write the audit result as a decision record, not only as a schema change. The fi
 
 ## 7. Unattended agents
 
-The knowledge store is intended to serve unattended agents, not only operator sessions, so they can ground automated tasks. That makes the store a production dependency rather than a convenience.
+The store is intended to serve unattended agents, not only operator sessions, so they can ground automated tasks. That makes the store a production dependency rather than a convenience.
 
 **Correctness bar rises.** A wrong document in an operator session costs a correction that is noticed immediately. The same document in an unattended run costs a merged PR or a bad triage, and nobody notices until later.
 
@@ -560,7 +565,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 
 ## 10. Open questions for implementation
 
-1. ~~Rules and skills as store documents with their own types, or as a separate source composed at bundle build.~~ **Resolved by verification.** Skills and agents are types; rules are ruleset membership. One pipeline, already built. See section 6.4.
+1. ~~Rules and skills as store documents with their own types, or as a separate source composed at bundle build.~~ **Resolved by verification.** Skills and agents are types; rules are package membership. One pipeline, already built. See section 6.4.
 2. ~~The reduced frontmatter schema, output of the section 6.3 audit.~~ **Resolved 2026-07-24.** Five types, six required fields, five fields deleted, two demoted. Migrated and recorded. See section 6.4. **No blocking questions remain.**
 3. Whether unattended agents receive skills, and if so which, by role.
 4. Precedence and contradiction handling between the local overlay and upstream bundles. Section 4.9.
@@ -571,7 +576,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 7. What defines "first useful action" precisely enough to compute discovery span consistently across session shapes.
 8. ~~Whether harness hooks install per worktree or at user level.~~ **Resolved 2026-07-24.** Neither: `qm init` writes the session hook into the repository's committed `.claude/settings.json`, so git carries it to every worktree and every clone exactly as it carries the manifest, and the machine-wide alternative is not needed. The command is guarded with `command -v qm` so it is inert for anyone without the tool, matching the git hooks. `--no-telemetry` skips it, since the flag already means "do not record". What remains is smaller: `qm status` should report whether the current worktree is actually recording, because a worktree that silently records nothing is still the failure worth catching.
 9. Whether `qm gaps` clustering runs locally or calls a model, and the cost implications of re-clustering a growing window each run.
-10. **How a repository selects what it gets, which is currently three idioms for four deliveries.** Designed and deliberately deferred; see [Packages](packages.md). The only thing this feature needs from it: a facet record names the packages a session had, and today that field is called `rulesets`. Either name is a rename away, so it does not block section 4.5.
+10. ~~**How a repository selects what it gets, which is currently three idioms for four deliveries.**~~ **Resolved.** Packages shipped; see [Packages](packages.md). What this feature still owes: a facet record should name the packages a session had, and `facet.Facet` records only `bundles` today. That is an addition to the record rather than a rename, and it does not block section 4.5.
 
 ---
 
@@ -580,7 +585,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 1. ~~Verify every `[VERIFY]` claim against the actual code and schema. Correct this document.~~ **Done 2026-07-24.** See section 0.
 2. Resolve the remaining blocking open question, the schema reduction. Question 1 is closed.
 3. Facet record schema, version 1. Freeze the identifier contract.
-4. **`qm trace record` done 2026-07-24**, spooling to `~/.quartermaster/spool/pending.jsonl` with `QM_TRACE_DIR` to override. Identity comes from `repo.Identity`, the branch from the worktree's own git directory, and every installed bundle rather than the first. The SessionEnd hook is documented in the README for hand-wiring, exactly as the usage hook is; installing it automatically waits on open question 8.
+4. **`qm trace record` done 2026-07-24**, spooling to `~/.qm/spool/pending.jsonl` with `QM_TRACE_DIR` to override. Identity comes from `repo.Identity`, the branch from the worktree's own git directory, and every installed bundle rather than the first. The SessionEnd hook is documented in the README for hand-wiring, exactly as the usage hook is; installing it automatically waits on open question 8.
 5. **`qm digest` done 2026-07-24, structurally.** It derives a facet by counting, matching, and ordering what the transcript already records: the discovery span, which knowledge documents were opened, how each was arrived at, whether opening one ended the search, and what the session produced. No model is called, so a digest costs nothing and can be re-run over the whole corpus whenever the derivation improves. `questions[]` stays empty rather than guessed, and every record says in `source` how it was made.
 
    That is a deliberate narrowing of what section 4.4 describes, and the reason to record it: Quartermaster's stated commitment is that it makes no model calls and is reproducible from its inputs. A per-session model call breaks that, and open question 6 has not been decided. The seam is left clean, so the semantic pass adds `questions[]` and flips `source` without redoing any of this.
@@ -590,7 +595,7 @@ Rejected alternative. The working-tree path, which is what the usage log recorde
 7. Capture for two weeks with the bundle held constant to establish the discovery-span baseline. Confirm first that the configured target actually names the knowledge root, per section 2.4.
 8. `qm gaps` with the content versus discoverability split and drafts output.
 9. ~~Frontmatter audit and schema reduction, recorded as a decision.~~ Done 2026-07-24, out of order, because the audit was what closed question 1 and the window for a breaking schema change is closing.
-10. Removal signals and `qm prune`. Rule signals join on `rulesets.json`, not on document type.
+10. Removal signals and `qm prune`. Rule signals join on `packages.json`, not on document type.
 11. SessionStart freshness check.
 
 ---

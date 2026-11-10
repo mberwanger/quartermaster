@@ -1,9 +1,10 @@
 // Package pack reads the named selections a bundle compiles, and resolves them
 // against the store.
 //
-// A package is a named selection of rules, skills, and agents. It contains no
-// prose, so deleting every package removes injection and removes no knowledge:
-// the documents stay in the retrievable tree either way.
+// A package is a named selection of rules and capabilities, a capability being a
+// skill or an agent. It contains no prose, so deleting every package removes
+// injection and removes no knowledge: the documents stay in the retrievable tree
+// either way.
 //
 // One name is what a repository asks for. That indirection is the point. A team
 // with thirty skills lists them once here rather than in every repository that
@@ -14,13 +15,14 @@
 // Selections are patterns. A plain id is a pattern with no wildcard, so there is
 // one rule rather than two, and `skills.data.*` selects a team's whole set
 // without naming its members. Patterns match against ids because ids are the
-// interface everywhere else in the tool: rulesets referenced them, manifests
+// interface everywhere else in the tool: packages reference them, manifests
 // name them, and a facet record cites one months later.
 package pack
 
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -97,21 +99,65 @@ func (r *Ref) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// Load reads and parses a packages file.
+// MatchID reports whether an id pattern covers an id.
 //
-// A missing file is an error rather than an empty set. This is only ever called
-// for a path the store named in bundle.yaml, so the file not being there means
-// the path is wrong, and treating that as "no packages" would build a bundle
-// that carries nothing and says nothing about why.
-func Load(path string) (File, error) {
-	raw, err := os.ReadFile(path) //nolint:gosec // path comes from bundle.yaml, chosen by whoever runs the tool
+// Ids are dot-separated and the matcher is path-shaped, so the separator is
+// translated rather than reimplemented. A single star then stops at a segment
+// boundary and a double star crosses it, which is the behavior anyone who has
+// written a glob expects.
+func MatchID(pattern, id string) (bool, error) {
+	return doublestar.Match(strings.ReplaceAll(pattern, ".", "/"), strings.ReplaceAll(id, ".", "/"))
+}
+
+// Exact reports whether this selection names one document outright rather than
+// describing a set. The difference decides what happens to a document that does
+// not qualify: naming one is an author's mistake and fails the build, while a
+// pattern skips it, so that drafting one document does not break every package
+// globbing its neighbours.
+func (r Ref) Exact() bool {
+	return r.Where.Empty() && !strings.ContainsAny(r.ID, "*?[")
+}
+
+// Matches reports whether this selection covers one document, by id pattern or
+// by predicate over its frontmatter.
+//
+// Compilation does not call this, because it walks every id once per selection
+// and needs to say which pattern matched nothing. This answers the same question
+// for one document, which is what explaining a single id needs, and it lives
+// here so the two can only ever agree about what a selection means.
+func (r Ref) Matches(id string, frontmatter map[string]any) bool {
+	if !r.Where.Empty() {
+		ok, _ := r.Where.Allows(frontmatter)
+		return ok
+	}
+	if r.ID == id {
+		return true
+	}
+	ok, err := MatchID(r.ID, id)
+	return err == nil && ok
+}
+
+// Load reads and parses the packages file a store named in bundle.yaml, given
+// the store root and the declared path relative to it. A store that named no
+// packages file has no packages, so an empty rel is an empty set.
+//
+// A named file that is missing is an error rather than an empty set: the path is
+// wrong, and treating that as "no packages" would build a bundle that carries
+// nothing and says nothing about why.
+func Load(root, rel string) (File, error) {
+	if rel == "" {
+		return File{}, nil
+	}
+
+	p := filepath.Join(root, rel)
+	raw, err := os.ReadFile(p) //nolint:gosec // path comes from bundle.yaml, chosen by whoever runs the tool
 	if err != nil {
 		return nil, err
 	}
 
 	var f File
 	if err := yaml.Unmarshal(raw, &f); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return nil, fmt.Errorf("%s: %w", p, err)
 	}
 	return f, nil
 }
@@ -270,11 +316,7 @@ func match(pkg string, kind Kind, ref Ref, byID map[string]doc.Doc, ids []string
 
 	default:
 		for _, id := range ids {
-			// Ids are dot-separated and the matcher is path-shaped, so the
-			// separator is translated rather than reimplemented. A single star
-			// then stops at a segment boundary and a double star crosses it,
-			// which is the behavior anyone who has written a glob expects.
-			ok, err := doublestar.Match(strings.ReplaceAll(ref.ID, ".", "/"), strings.ReplaceAll(id, ".", "/"))
+			ok, err := MatchID(ref.ID, id)
 			if err != nil {
 				return nil, false, fmt.Errorf("package %q has an unreadable %s pattern %q: %w", pkg, kind, ref.ID, err)
 			}
@@ -299,11 +341,18 @@ func qualifies(kind Kind, d doc.Doc, opts Options) (bool, string) {
 		return false, "it is restricted and never leaves the store"
 	}
 
+	// The gate applies to every kind, not only rules. It used to govern rules
+	// alone, which meant a store could gate on status: [stable] and still ship a
+	// draft skill, tool grants and all, to every repository selecting the pattern
+	// that matched it. A capability is the stronger delivery of the two: a rule
+	// is text an agent reads, and a skill is something it can be handed along
+	// with permission to run things. Holding the weaker one to a standard the
+	// stronger one escapes was the wrong way round.
+	if ok, reason := opts.Requires.Allows(d.Frontmatter); !ok {
+		return false, reason
+	}
+
 	switch kind {
-	case KindRule:
-		if ok, reason := opts.Requires.Allows(d.Frontmatter); !ok {
-			return false, reason
-		}
 	case KindSkill:
 		if opts.IsSkill != nil && !opts.IsSkill(d) {
 			return false, "it is not a skill"

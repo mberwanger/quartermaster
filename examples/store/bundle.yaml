@@ -8,6 +8,4 @@ exclude: ["meta/templates/**"]
 # What a document must be before any package may turn it into a rule. A draft is
 # still distributed and still readable; it just never loads on its own.
 requires:
-  status: [active]
-  provenance: [verified, decided]
-  visibility: { not: [restricted] }
+  status: [stable]

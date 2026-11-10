@@ -25,8 +25,8 @@ import (
 )
 
 // KnowledgeDir is the materialized knowledge tree, relative to a repository.
-// It is the path a read has to fall under to count as a store read.
-const KnowledgeDir = ".quartermaster/knowledge"
+// It is the path a read has to fall under to count as a knowledge read.
+const KnowledgeDir = ".qm/knowledge"
 
 // Repo is what the repository can say about itself at digest time. It is passed
 // in rather than looked up, so digesting is a pure function of its inputs and a
@@ -74,7 +74,7 @@ func Digest(s *transcript.Session, r Repo) facet.Facet {
 	}
 
 	f.DiscoverySpan = discoverySpan(s)
-	f.StoreReads = storeReads(s)
+	f.KnowledgeReads = knowledgeReads(s)
 	f.Outcome = outcome(s)
 	f.HumanAsks = humanAsks(s)
 
@@ -121,9 +121,9 @@ func discoverySpan(s *transcript.Session) *int {
 	return nil
 }
 
-// storeReads finds the knowledge documents the agent opened, in order.
-func storeReads(s *transcript.Session) []facet.StoreRead {
-	var out []facet.StoreRead
+// knowledgeReads finds the knowledge documents the agent opened, in order.
+func knowledgeReads(s *transcript.Session) []facet.KnowledgeRead {
+	var out []facet.KnowledgeRead
 	var sawIndex bool
 
 	for i, e := range s.Events {
@@ -136,7 +136,7 @@ func storeReads(s *transcript.Session) []facet.StoreRead {
 		}
 
 		// An index is navigation rather than an answer, so reading one is not a
-		// store read. It is what the next read arrived through.
+		// knowledge read. It is what the next read arrived through.
 		if doc.Reserved(filepath.Base(rel)) {
 			sawIndex = true
 			continue
@@ -147,7 +147,7 @@ func storeReads(s *transcript.Session) []facet.StoreRead {
 			arrived = facet.ArrivedViaIndex
 		}
 
-		out = append(out, facet.StoreRead{
+		out = append(out, facet.KnowledgeRead{
 			ID:                    docID(e.Path),
 			Path:                  rel,
 			ArrivedVia:            arrived,

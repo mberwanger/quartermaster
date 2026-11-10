@@ -33,7 +33,7 @@ func newGapsCmd() *gapsCmd {
 
 	cmd := &cobra.Command{
 		Use:   "gaps",
-		Short: "Rank what the knowledge store should probably say",
+		Short: "Rank what the store should probably say",
 		Long: `Cluster the questions sessions kept having to answer, and rank what is worth
 writing down.
 
@@ -125,8 +125,8 @@ func (v *gapsCmd) run(out io.Writer) error {
 			return err
 		}
 		fmt.Fprintf(&b, "\nwrote %d draft(s) to %s\n", written, v.drafts)
-		fmt.Fprintf(&b, "They are drafts on purpose: status draft, provenance asserted, so the\n")
-		fmt.Fprintf(&b, "store's own gate keeps them out of every package until a person promotes one.\n")
+		fmt.Fprintf(&b, "They are drafts on purpose: the store's own gate keeps a draft out of\n")
+		fmt.Fprintf(&b, "every package until a person promotes it.\n")
 	}
 
 	_, err = io.WriteString(out, b.String())
@@ -231,7 +231,6 @@ func writeDrafts(dir string, clusters []gaps.Cluster) (int, error) {
 		fmt.Fprintf(&b, "description: %s\n", c.Label)
 		b.WriteString("type: concept\n")
 		b.WriteString("status: draft\n")
-		b.WriteString("provenance: asserted\n")
 		b.WriteString("---\n\n")
 
 		fmt.Fprintf(&b, "# %s\n\n", title(c.Label))

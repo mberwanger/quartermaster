@@ -115,13 +115,13 @@ documents landed as retrievable.
 What `init` wrote:
 
 ```bash
-cat "$REPO/.quartermaster.yaml"
+cat "$REPO/.qm.yaml"
 git -C "$REPO" diff --stat HEAD -- .gitignore
 ls "$REPO/.git/hooks/" | grep post-
 cat "$REPO/.claude/settings.json"
 ```
 
-- **`.quartermaster.yaml`** is the only file you edit. It names sources,
+- **`.qm.yaml`** is the only file you edit. It names sources,
   packages, targets, and whether telemetry is on.
 - **`.gitignore`** gains the generated paths, because generated output is not
   committed.
@@ -137,7 +137,7 @@ cat "$REPO/.claude/settings.json"
 ## 3. What landed, and why it landed there
 
 ```bash
-find "$REPO/.claude" "$REPO/.quartermaster" -type f | sort
+find "$REPO/.claude" "$REPO/.qm" -type f | sort
 ```
 
 Four different destinations, and the difference between them is the whole design.
@@ -153,20 +153,20 @@ source id and the bundle digest. No summarizing happens: a rule is the document,
 not a paraphrase of it, so there is never a second statement of the same claim
 with nothing checking that the two agree.
 
-**Knowledge** in `.quartermaster/knowledge/`, the whole tree:
+**Knowledge** in `.qm/knowledge/`, the whole tree:
 
 ```bash
-ls "$REPO/.quartermaster/knowledge/"
+ls "$REPO/.qm/knowledge/"
 ```
 
 This costs no context. It sits on disk and enters a session only when an agent
 opens a file. Everything in the bundle is retrievable; a package is what makes a
 subset additionally resident.
 
-**State** in `.quartermaster/state.json`:
+**State** in `.qm/state.json`:
 
 ```bash
-jq '{bundles, targets, files: (.files | length)}' "$REPO/.quartermaster/state.json"
+jq '{bundles, targets, files: (.files | length)}' "$REPO/.qm/state.json"
 ```
 
 This is what makes pruning possible. Generated files are gitignored, so nothing
@@ -260,7 +260,7 @@ $QM sync --dir "$REPO"
 ## 6. One payload, several harnesses
 
 ```bash
-python3 - "$REPO/.quartermaster.yaml" <<'PY'
+python3 - "$REPO/.qm.yaml" <<'PY'
 import sys, pathlib
 p = pathlib.Path(sys.argv[1])
 p.write_text(p.read_text().replace("targets:\n  - claude\n", "targets:\n  - claude\n  - cursor\n  - agents-md\n"))
@@ -286,7 +286,7 @@ markers survives every sync.
 Remove a package and the files it produced go away:
 
 ```bash
-python3 - "$REPO/.quartermaster.yaml" <<'PY'
+python3 - "$REPO/.qm.yaml" <<'PY'
 import sys, pathlib, re
 p = pathlib.Path(sys.argv[1])
 p.write_text(re.sub(r"^\s*use:.*$", "    use: []", p.read_text(), flags=re.M))
@@ -294,7 +294,7 @@ PY
 
 $QM sync --dir "$REPO"
 find "$REPO/.claude/rules/qm" -name '*.md' | wc -l
-ls "$REPO/.quartermaster/knowledge/" | head -3
+ls "$REPO/.qm/knowledge/" | head -3
 ```
 
 Sync reports what it removed (`pruned 8`), the rule count is now zero, and the
@@ -309,7 +309,7 @@ Two hooks, both opt-in per repository through `telemetry:` in the manifest, both
 silent no-ops when anything is off.
 
 ```bash
-DOC=$(find "$REPO/.quartermaster/knowledge" -name '*.md' ! -name index.md | head -1)
+DOC=$(find "$REPO/.qm/knowledge" -name '*.md' ! -name index.md | head -1)
 $QM usage record "$DOC"
 cat "$QM_USAGE_DIR"/*.jsonl | jq -c '{id, repo, worktree}'
 ```
@@ -326,7 +326,7 @@ jq -c '{session_id, repo, branch, bundles}' "$QM_TRACE_DIR/pending.jsonl"
 A read outside the knowledge tree records nothing:
 
 ```bash
-$QM usage record "$REPO/.quartermaster.yaml"; echo "exit: $?"
+$QM usage record "$REPO/.qm.yaml"; echo "exit: $?"
 ```
 
 `qm stats` reads the log. It will tell you which documents nobody opens, which

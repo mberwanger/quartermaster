@@ -1,5 +1,5 @@
 // Package manifest reads the per-repository declaration a consumer commits: the
-// bundles it draws from, the rulesets it applies, and the harnesses it targets.
+// bundles it draws from, the packages it applies, and the harnesses it targets.
 //
 // The manifest is the whole of what a repository declares. Everything
 // materialized is reproducible from it, which is why the harness-specific output
@@ -17,9 +17,9 @@ import (
 )
 
 // FileName is the manifest a consumer commits at its repository root.
-const FileName = ".quartermaster.yaml"
+const FileName = ".qm.yaml"
 
-// Manifest is a parsed .quartermaster.yaml.
+// Manifest is a parsed .qm.yaml.
 type Manifest struct {
 	// Bundles are listed in precedence order. When two bundles produce a rule
 	// with the same id, the later entry wins. Precedence is declared rather than

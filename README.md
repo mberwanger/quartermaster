@@ -23,7 +23,7 @@ repository taking two teams' packages, scoping the knowledge it keeps on disk,
 and correctly refusing to promote a draft.
 
 `init` resolves the source, detects which agent tools the repository uses, writes
-`.quartermaster.yaml`, adds the generated paths to `.gitignore`, installs `post-checkout`
+`.qm.yaml`, adds the generated paths to `.gitignore`, installs `post-checkout`
 and `post-merge` hooks so the files stay current across branch switches, and runs the
 first sync.
 
@@ -38,12 +38,13 @@ repository that consumes it.
 
 | Command | Purpose |
 | --- | --- |
-| `qm bundle init` | Scaffold a new knowledge store |
+| `qm bundle init` | Scaffold a new store |
 | `qm bundle index` | Regenerate directory listings, or check them in CI |
 | `qm bundle validate` | Run all compilation checks without emitting anything |
 | `qm bundle build` | Compile a source tree into a bundle |
 | `qm bundle explain <id>` | Show why a document did or did not become a rule |
 | `qm bundle publish` | Push a built bundle to a registry |
+| `qm bundle pull <source>` | Resolve any source and write the artifact out, with no consuming repository |
 | `qm init` | Set a repository up and run the first sync |
 | `qm sync` | Resolve, write the files, remove what no longer applies |
 | `qm verify` | Fail if generated files were edited or went stale |
@@ -53,13 +54,19 @@ repository that consumes it.
 
 ## How it works
 
-A **bundle** is a snapshot of a knowledge store — markdown with frontmatter — addressed by
+A **bundle** is a snapshot of a store — markdown with frontmatter — addressed by
 a content digest, so a given digest always means the same bytes.
 
 A **package** is a named selection — shaped by team or topic, like `engineering` or
-`data-engineering` — carrying the rules, skills, and agents that belong together. It holds
+`data-engineering` — carrying the rules and capabilities that belong together. It holds
 no content of its own; choosing a package decides what your repository is given without
 asking, and the documents are in the bundle either way.
+
+A **capability** is a skill or an agent. A skill loads instructions on demand, when the
+work matches what its description says it is for; an agent delegates work with its own
+tools, model, and permissions. Both are reached for by the agent when they apply, which is
+what separates them from a rule — a rule is pushed, whether it turns out to be needed or
+not.
 
 Selections are patterns, so a team's skills are `skills.data.*` rather than a list, and
 adding one reaches every package that globs it without editing any of them.
@@ -72,8 +79,7 @@ Which documents are *allowed* to become rules is declared once, in the store's
 
 ```yaml
 requires:
-  status: [active]
-  provenance: [verified, decided]
+  status: [stable]
 ```
 
 A draft can't be pulled in by naming it in a package — the build fails and tells you which
@@ -84,7 +90,7 @@ How a rule loads depends on whether it declares a path scope:
 - **no scope** — loaded at the start of every session
 - **a scope** like `**/*.go` — loaded only when a matching file is open
 
-Everything else in the bundle is written to `.quartermaster/knowledge/` and enters the
+Everything else in the bundle is written to `.qm/knowledge/` and enters the
 agent's context only if it goes looking. Because always-loaded rules cost context in every
 session, `qm status` reports their total against the `budget.resident_bytes` you set.
 
@@ -201,7 +207,7 @@ plus a content digest — so nothing downstream depends on where it came from.
 | `git+https://` | Fetch a ref; `//subdir` and `#ref` are optional |
 | `https://` | Fetch a tarball |
 
-Remote sources are cached by digest under `~/.quartermaster/cache` (override with
+Remote sources are cached by digest under `~/.qm/cache` (override with
 `QM_CACHE_DIR`), so many repositories on the same bundle pull it once. `file://` is never
 cached: a local tree is what you edit, and every save has to be visible immediately.
 

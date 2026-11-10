@@ -16,15 +16,15 @@ func TestSaveAndLoad(t *testing.T) {
 
 	span := 14
 	want := Facet{
-		Session:       "s1",
-		Repo:          "github.com/admiral/api",
-		Branch:        "feature/x",
-		DiscoverySpan: &span,
-		Bundles:       []Bundle{{Source: "oci://x", Digest: "sha256:a"}},
-		StoreReads:    []StoreRead{{ID: "voice.base", Path: "voice/base.md", ArrivedVia: ArrivedViaIndex}},
-		Outcome:       OutcomeCommitted,
-		EndedAt:       at(30),
-		Source:        SourceStructural,
+		Session:        "s1",
+		Repo:           "github.com/admiral/api",
+		Branch:         "feature/x",
+		DiscoverySpan:  &span,
+		Bundles:        []Bundle{{Source: "oci://x", Digest: "sha256:a"}},
+		KnowledgeReads: []KnowledgeRead{{ID: "voice.base", Path: "voice/base.md", ArrivedVia: ArrivedViaIndex}},
+		Outcome:        OutcomeCommitted,
+		EndedAt:        at(30),
+		Source:         SourceStructural,
 	}
 	if err := Save(want); err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestSaveAndLoad(t *testing.T) {
 	if got.DiscoverySpan == nil || *got.DiscoverySpan != span {
 		t.Errorf("discovery span lost: %+v", got.DiscoverySpan)
 	}
-	if len(got.Bundles) != 1 || len(got.StoreReads) != 1 {
+	if len(got.Bundles) != 1 || len(got.KnowledgeReads) != 1 {
 		t.Errorf("nested records lost: %+v", got)
 	}
 }
@@ -160,7 +160,7 @@ func TestAnnotate(t *testing.T) {
 func TestAnnotateReplaces(t *testing.T) {
 	var f Facet
 	first := []Question{{Question: "a", Resolution: ResolutionUnresolved}}
-	second := []Question{{Question: "b", Resolution: ResolutionStoreRead}}
+	second := []Question{{Question: "b", Resolution: ResolutionKnowledgeRead}}
 
 	if err := f.Annotate(first); err != nil {
 		t.Fatal(err)
@@ -178,8 +178,8 @@ func TestAnnotateReplaces(t *testing.T) {
 func TestAnnotateRejectsMalformedQuestions(t *testing.T) {
 	cases := map[string][]Question{
 		"unknown resolution": {{Question: "x", Resolution: "vibes"}},
-		"empty question":     {{Question: "  ", Resolution: ResolutionStoreRead}},
-		"negative calls":     {{Question: "x", Resolution: ResolutionStoreRead, ToolCalls: -1}},
+		"empty question":     {{Question: "  ", Resolution: ResolutionKnowledgeRead}},
+		"negative calls":     {{Question: "x", Resolution: ResolutionKnowledgeRead, ToolCalls: -1}},
 	}
 
 	for name, questions := range cases {
