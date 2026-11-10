@@ -50,7 +50,11 @@ type Result struct {
 	Targets []string
 	// Warnings are non-fatal notices: digest mismatches, budget overruns.
 	Warnings []string
-	// ResidentBytes is the total prose size of unscoped (resident) documents.
+	// Guide is the resident document Quartermaster writes itself, telling an
+	// agent where the delivered knowledge is and how to search it.
+	Guide target.Doc
+	// ResidentBytes is the total prose size of unscoped (resident) documents,
+	// the guide included.
 	ResidentBytes int
 	// Budget is the manifest's declared budget.
 	Budget manifest.Budget
@@ -76,6 +80,7 @@ func Compute(dir string) (*Result, error) {
 
 	byID := make(map[string]target.Doc)
 	var order []string
+	tree := knowledgeTree{dirs: map[string]int{}}
 
 	// Packages overlap on purpose: a skill shared by two teams appears in both
 	// and must be materialized once. Rules dedupe through byID already, because
@@ -186,6 +191,9 @@ func Compute(dir string) (*Result, error) {
 				}
 			}
 			r.Knowledge[path.Join(KnowledgeDir, f.Path)] = f.Body
+			if _, isDoc := fmByPath[f.Path]; isDoc {
+				tree.add(f.Path)
+			}
 		}
 
 		r.Bundles = append(r.Bundles, state.Bundle{
@@ -208,11 +216,15 @@ func Compute(dir string) (*Result, error) {
 	r.Outputs = make(map[string][]byte, len(r.Knowledge))
 	maps.Copy(r.Outputs, r.Knowledge)
 
+	r.Guide = guide(r.Bundles, tree)
+	r.ResidentBytes += len(r.Guide.Prose)
+
 	in := target.Input{
 		Docs:    r.Docs,
 		Skills:  r.Skills,
 		Agents:  r.Agents,
 		Bundles: bundlesForTarget(r.Bundles),
+		Guide:   &r.Guide,
 	}
 	for _, t := range targets {
 		out, err := t.Render(in)

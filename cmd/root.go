@@ -86,6 +86,7 @@ model call is made at any point.`,
 		newSyncCmd().cmd,
 		newVerifyCmd().cmd,
 		newStatusCmd().cmd,
+		newFindCmd().cmd,
 		newTargetsCmd().cmd,
 	)
 

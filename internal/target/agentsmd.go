@@ -41,7 +41,7 @@ func (agentsMD) Render(in Input) (Output, error) {
 	b.WriteString("\nMaterialized rules live under the harness rule directories; retrievable docs under `.qm/knowledge/`.\n")
 
 	var resident, scoped []Doc
-	for _, d := range in.Docs {
+	for _, d := range withGuide(in) {
 		if len(d.Scope) == 0 {
 			resident = append(resident, d)
 		} else {

@@ -123,6 +123,11 @@ type Input struct {
 	Skills  []Skill
 	Agents  []Agent
 	Bundles []Bundle
+	// Guide is the one resident document Quartermaster writes itself: where
+	// the delivered knowledge is, what it holds, and how to search it. It is
+	// rendered like a rule by every harness that has rules, and listed by the
+	// ones that only point. Nil renders nothing.
+	Guide *Doc
 }
 
 // Target renders documents into one harness's output.

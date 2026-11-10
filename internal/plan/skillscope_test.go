@@ -43,8 +43,9 @@ func TestSkillScopeBecomesAPointerRule(t *testing.T) {
 	if !strings.Contains(string(pointer), "`review` skill") {
 		t.Errorf("pointer rule does not name the skill:\n%s", pointer)
 	}
-	if r.ResidentBytes != 0 {
-		t.Errorf("a path-scoped pointer counted as resident: %d B", r.ResidentBytes)
+	// The only resident bytes are the guide's: the pointer is path-scoped.
+	if r.ResidentBytes != len(r.Guide.Prose) {
+		t.Errorf("a path-scoped pointer counted as resident: %d B, guide is %d B", r.ResidentBytes, len(r.Guide.Prose))
 	}
 }
 

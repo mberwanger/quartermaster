@@ -70,7 +70,7 @@ func (v *statusCmd) run(out io.Writer) error {
 		}
 	}
 
-	fmt.Fprintf(&b, "rules:     %d resident, %d scoped\n", resident, scoped)
+	fmt.Fprintf(&b, "rules:     %d resident, %d scoped, plus the knowledge guide\n", resident, scoped)
 	if len(r.Skills) > 0 {
 		var pointed int
 		for _, s := range r.Skills {

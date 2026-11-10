@@ -1,6 +1,23 @@
 package target
 
-import "bytes"
+import (
+	"bytes"
+	"fmt"
+)
+
+// sourceLine writes the provenance comment every generated file opens with. A
+// document the tool wrote itself has no bundle to name, so that part is left
+// out rather than printed empty.
+func sourceLine(b *bytes.Buffer, id, digest, commit string) {
+	fmt.Fprintf(b, "# source: %s", id)
+	if digest != "" {
+		fmt.Fprintf(b, "  bundle: %s", digest)
+	}
+	if commit != "" {
+		fmt.Fprintf(b, "  commit: %s", commit)
+	}
+	b.WriteByte('\n')
+}
 
 // RuleBody is the text of a rule below its frontmatter: the document's prose,
 // verbatim, with leading blank lines trimmed and a single trailing newline.
@@ -15,4 +32,14 @@ func RuleBody(prose []byte) []byte {
 		return trimmed
 	}
 	return append(trimmed, '\n')
+}
+
+// withGuide is the rule set a harness renders: the guide first, when there is
+// one, then the selected documents. The guide goes first because it is the
+// document that says where the rest came from.
+func withGuide(in Input) []Doc {
+	if in.Guide == nil {
+		return in.Docs
+	}
+	return append([]Doc{*in.Guide}, in.Docs...)
 }

@@ -67,6 +67,7 @@ repository that consumes it.
 | `qm sync` | Resolve, write the files, remove what no longer applies |
 | `qm verify` | Fail if generated files were edited or went stale |
 | `qm status` | Show what resolves today, and how much is always loaded |
+| `qm find <term>` | Search the delivered knowledge by id, title, and description |
 | `qm targets` | List the agent tools this build can write for |
 
 ## How it works
@@ -110,6 +111,23 @@ How a rule loads depends on whether it declares a path scope:
 Everything else in the bundle is written to `.qm/knowledge/` and enters the
 agent's context only if it goes looking. Because always-loaded rules cost context in every
 session, `qm status` reports their total against the `budget.resident_bytes` you set.
+
+A skill is loaded only when the agent asks for it, and an agent editing a test file does
+not reliably ask for the testing skill. A skill that declares a `scope` therefore gets a
+few-line path-scoped rule beside it that names the skill when a matching file is open.
+The rule carries none of the skill's body and costs nothing against the budget.
+
+### How an agent finds it
+
+Every sync writes one resident rule of its own, `qm.knowledge`, generated from what it
+delivered: where the tree is, how many documents each directory holds, which sources and
+packages they came from, and how to search. It tells the agent to read the delivered copy
+rather than another checkout of the store, and that the copy is current because the hooks
+keep it so.
+
+`qm find <term>` is the search it names. Every term must match; a hit in the id or title
+outranks one in the description, which outranks one in the body; a superseded document is
+left out. A grep finds every mention, this finds the document.
 
 ## Taking only the knowledge you need
 
