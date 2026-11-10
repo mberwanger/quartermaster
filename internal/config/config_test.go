@@ -111,3 +111,34 @@ func TestSkillDirsWithoutADeclaredGate(t *testing.T) {
 		t.Error("an ordinary document was treated as a skill asset")
 	}
 }
+
+func TestLoadListings(t *testing.T) {
+	for _, tt := range []struct {
+		yaml, want string
+		fails      bool
+	}{
+		{"name: s\n", ListingsCommitted, false},
+		{"listings: committed\n", ListingsCommitted, false},
+		{"listings: build\n", ListingsBuild, false},
+		{"listings: generated\n", "", true},
+	} {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, FileName), []byte(tt.yaml), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		c, err := Load(root)
+		if tt.fails {
+			if err == nil {
+				t.Errorf("%q: loaded, want an error", tt.yaml)
+			}
+			continue
+		}
+		if err != nil || c.Listings != tt.want || c.ListingsAtBuild() != (tt.want == ListingsBuild) {
+			t.Errorf("%q: listings = %+v, %v, want %s", tt.yaml, c, err, tt.want)
+		}
+	}
+	// No bundle.yaml at all is the default too.
+	if c, err := Load(t.TempDir()); err != nil || c.Listings != ListingsCommitted {
+		t.Errorf("no bundle.yaml: %+v, %v", c, err)
+	}
+}

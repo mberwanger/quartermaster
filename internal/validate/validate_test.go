@@ -3,6 +3,7 @@ package validate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mberwanger/quartermaster/internal/config"
@@ -86,5 +87,30 @@ func TestRunRejectsNonRootIndexWithFrontmatter(t *testing.T) {
 	}
 	if res.OK() {
 		t.Fatal("a non-root index with frontmatter was accepted")
+	}
+}
+
+// A store that writes its listings at build fails validation on a committed one.
+func TestRunRejectsCommittedListingAtBuild(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "index.md", "# Store\n\n<!-- BEGIN GENERATED -->\n- [a](a.md)\n<!-- END GENERATED -->\n")
+	writeFile(t, root, "a.md", "---\nid: a\ntitle: A\ndescription: A.\ntype: concept\n---\n# A\n")
+
+	c := cfg()
+	res, err := Run(root, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK() {
+		t.Fatalf("committed listings flagged in a committed store: %+v", res.Findings)
+	}
+
+	c.Listings = config.ListingsBuild
+	res, err = Run(root, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK() || res.Findings[0].Path != "index.md" || !strings.Contains(res.Findings[0].Message, "--strip") {
+		t.Errorf("findings = %+v, want the committed listing named with the fix", res.Findings)
 	}
 }

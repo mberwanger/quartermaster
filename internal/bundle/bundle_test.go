@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/mberwanger/quartermaster/internal/config"
@@ -160,3 +161,85 @@ func TestBuildDeterministic(t *testing.T) {
 
 // Compiled is re-exported from the package package for brevity in this test.
 type Compiled = pack.Compiled
+
+// buildAt builds a copy of the fixture with listings set as given.
+func buildAt(t *testing.T, listings string) *Bundle {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.CopyFS(root, os.DirFS(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	cfgPath := filepath.Join(root, config.FileName)
+	raw, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfgPath, append(raw, []byte("listings: "+listings+"\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs, err := pack.Load(root, cfg.Packages)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := Build(Options{Root: root, Config: cfg, Packages: rs})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	return b
+}
+
+func file(b *Bundle, p string) (string, bool) {
+	for _, f := range b.Files {
+		if f.Path == p {
+			return string(f.Body), true
+		}
+	}
+	return "", false
+}
+
+// With listings: build the bundle writes each listing: into the committed
+// prose, and as a new index.md where the store keeps none.
+func TestBuildWritesListings(t *testing.T) {
+	b := buildAt(t, config.ListingsBuild)
+
+	root, ok := file(b, "index.md")
+	if !ok || !strings.Contains(root, "# Example store") || !strings.Contains(root, "engineering") || !strings.Contains(root, "<!-- BEGIN GENERATED -->") {
+		t.Errorf("root index = %q, want the prose and a listing naming engineering", root)
+	}
+	eng, ok := file(b, "engineering/index.md")
+	if !ok || !strings.Contains(eng, "errors.md") || !strings.Contains(eng, "logging.md") {
+		t.Errorf("engineering/index.md = %q, %v, want a listing of its documents", eng, ok)
+	}
+	// The restricted document is not in the bundle, so no listing names it.
+	if strings.Contains(eng, "secret") {
+		t.Errorf("engineering/index.md lists the restricted document:\n%s", eng)
+	}
+	if !slices.IsSortedFunc(b.Files, func(x, y File) int { return strings.Compare(x.Path, y.Path) }) {
+		t.Error("files are not in path order")
+	}
+
+	// Building again gives the same artifact.
+	if again := buildAt(t, config.ListingsBuild); again.Meta.Digest != b.Meta.Digest {
+		t.Errorf("digest %s then %s, want a reproducible build", b.Meta.Digest, again.Meta.Digest)
+	}
+}
+
+// With listings committed, the default, index files travel exactly as the
+// store keeps them.
+func TestBuildCarriesCommittedListings(t *testing.T) {
+	b := buildAt(t, config.ListingsCommitted)
+	want, err := os.ReadFile(filepath.Join(fixture, "index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := file(b, "index.md"); got != string(want) {
+		t.Errorf("root index = %q, want it verbatim %q", got, want)
+	}
+	if _, ok := file(b, "engineering/index.md"); ok {
+		t.Error("a committed-listings build wrote an index.md the store does not keep")
+	}
+}

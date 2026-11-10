@@ -31,6 +31,7 @@ import (
 
 	"github.com/mberwanger/quartermaster/internal/config"
 	"github.com/mberwanger/quartermaster/internal/doc"
+	"github.com/mberwanger/quartermaster/internal/index"
 	"github.com/mberwanger/quartermaster/internal/pack"
 )
 
@@ -259,6 +260,14 @@ func Build(opts Options) (*Bundle, error) {
 		b.Files = append(b.Files, f)
 	}
 
+	if opts.Config.ListingsAtBuild() {
+		listings, err := index.Build(opts.Root, opts.Config)
+		if err != nil {
+			return nil, err
+		}
+		b.Files = withListings(b.Files, listings)
+	}
+
 	b.Meta.Docs = len(b.Catalog)
 	b.Meta.Files = len(b.Files)
 	b.Meta.Packages = len(b.Packages)
@@ -298,6 +307,27 @@ func loadOKFVersion(root string) (string, error) {
 		return defaultOKFVersion, nil
 	}
 	return okfVersion, nil
+}
+
+// withListings writes each listing into its index.md, keeping the prose the
+// store committed above it, and adds the index.md of a directory the store
+// keeps none for. The listings are computed from the same distributed,
+// unrestricted documents the bundle carries, so a listing never points at a
+// file the bundle left behind.
+func withListings(files []File, listings []index.File) []File {
+	at := make(map[string]int, len(files))
+	for i, f := range files {
+		at[f.Path] = i
+	}
+	for _, l := range listings {
+		if i, ok := at[l.Path]; ok {
+			files[i].Body = []byte(index.Apply(string(files[i].Body), l))
+			continue
+		}
+		files = append(files, File{Path: l.Path, Body: []byte(index.Apply("", l))})
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+	return files
 }
 
 // indexedDirs is every directory the bundle carries a document in, plus their

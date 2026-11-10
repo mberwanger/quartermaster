@@ -157,3 +157,42 @@ func read(t *testing.T, root, rel string) string {
 	}
 	return string(b)
 }
+
+// Strip leaves a store's prose and removes what Sync generated, deleting an
+// index.md with nothing else in it.
+func TestStrip(t *testing.T) {
+	root, cfg := newStore(t)
+	write(t, root, "engineering/index.md", "# Engineering\n\nWhy this exists.\n")
+	if _, err := Sync(root, cfg, true); err != nil {
+		t.Fatal(err)
+	}
+	committed, err := Committed(root)
+	if err != nil || len(committed) == 0 {
+		t.Fatalf("Committed after Sync = %v, %v, want listings", committed, err)
+	}
+
+	// A dry run changes nothing.
+	if got, err := Strip(root, false); err != nil || len(got) != len(committed) {
+		t.Fatalf("Strip dry run = %v, %v", got, err)
+	}
+	if again, _ := Committed(root); len(again) != len(committed) {
+		t.Fatal("a dry run removed listings")
+	}
+
+	if _, err := Strip(root, true); err != nil {
+		t.Fatal(err)
+	}
+	if left, _ := Committed(root); len(left) != 0 {
+		t.Errorf("listings left after Strip: %v", left)
+	}
+	if got := read(t, root, "engineering/index.md"); got != "# Engineering\n\nWhy this exists.\n" {
+		t.Errorf("prose after Strip = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(root, "engineering/knowledge/index.md")); !os.IsNotExist(err) {
+		t.Errorf("an index.md with only a listing was kept: %v", err)
+	}
+	// The root keeps its format declaration, which is not the listing.
+	if got := read(t, root, "index.md"); !strings.HasPrefix(got, "---\nokf_version:") {
+		t.Errorf("root after Strip = %q", got)
+	}
+}
