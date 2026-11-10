@@ -70,7 +70,14 @@ type Skill struct {
 	Description string
 	// AllowedTools is the harness's own contract, carried through untouched.
 	AllowedTools []string
-	Prose        []byte
+	// Scope is the globs the skill is pointed at. A harness loads a skill only
+	// when the agent asks for it, and an agent that is editing a test file does
+	// not reliably ask for the testing skill. With a scope, a renderer writes a
+	// small path-scoped rule that names the skill when a matching file is
+	// open, which is the one trigger a harness does fire by itself. Empty means
+	// the description alone has to carry it.
+	Scope []string
+	Prose []byte
 	// Assets are the files beside the skill document, with paths relative to the
 	// skill's own directory, so they render into the same shape they were
 	// authored in.

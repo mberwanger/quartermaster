@@ -310,3 +310,45 @@ func mustGate(t *testing.T, body string) gate.Gate {
 	}
 	return g
 }
+
+// A skill's scope is not where it loads, since a harness never loads a skill by
+// path, but which files it is pointed at from. It resolves the same way a
+// rule's does: the package's override first, then the document's own.
+func TestSkillScopeResolvesLikeARule(t *testing.T) {
+	docs := []doc.Doc{
+		{Path: "skills/go-testing.md", Frontmatter: map[string]any{"id": "skills.go-testing", "type": "skill", "status": "active", "scope": []any{"**/*_test.go"}}},
+		{Path: "skills/planning.md", Frontmatter: map[string]any{"id": "skills.planning", "type": "skill", "status": "active"}},
+		{Path: "agents/reviewer.md", Frontmatter: map[string]any{"id": "agents.reviewer", "type": "agent", "status": "active", "scope": []any{"**/*.go"}}},
+	}
+
+	got, err := Compile(parse(t, `
+declared:
+  skills: [skills.go-testing, skills.planning]
+  agents: [agents.reviewer]
+overridden:
+  skills:
+    - id: skills.go-testing
+      scope: ["internal/**/*_test.go"]
+`), docs, opts())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byName := map[string]Compiled{}
+	for _, c := range got {
+		byName[c.Name] = c
+	}
+	if s := byName["declared"].Skills[0].Scope; len(s) != 1 || s[0] != "**/*_test.go" {
+		t.Errorf("declared scope = %v, want the document's own", s)
+	}
+	if s := byName["declared"].Skills[1].Scope; len(s) != 0 {
+		t.Errorf("a skill without a scope got one: %v", s)
+	}
+	if s := byName["overridden"].Skills[0].Scope; len(s) != 1 || s[0] != "internal/**/*_test.go" {
+		t.Errorf("overridden scope = %v, want the package's", s)
+	}
+	// Delegation is a choice, not a path: an agent's scope is ignored.
+	if s := byName["declared"].Agents[0].Scope; len(s) != 0 {
+		t.Errorf("an agent got a scope: %v", s)
+	}
+}

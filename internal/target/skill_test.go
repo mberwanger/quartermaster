@@ -76,3 +76,57 @@ func keysOf(m map[string]string) []string {
 	}
 	return out
 }
+
+// A harness never loads a skill by path, and an agent editing a test file does
+// not reliably ask for the testing skill. A scoped skill therefore gets a small
+// path-scoped rule beside it that names the skill when a matching file is open.
+func TestClaudeRendersAPointerRuleForAScopedSkill(t *testing.T) {
+	out, err := claude{}.Render(Input{Skills: []Skill{
+		{
+			ID:          "skills.go-testing",
+			Name:        "go-testing",
+			Description: "Reach for this when writing or reviewing a Go test.",
+			Scope:       []string{"**/*_test.go"},
+			Prose:       []byte("# Go testing\n\nLong guidance.\n"),
+			Digest:      "sha256:abc",
+		},
+		{
+			ID:     "skills.planning",
+			Name:   "planning",
+			Prose:  []byte("# Planning\n"),
+			Digest: "sha256:abc",
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byPath := map[string]string{}
+	for _, f := range out.Files {
+		byPath[f.Path] = string(f.Body)
+	}
+
+	pointer, ok := byPath[".claude/rules/qm/skills.go-testing.md"]
+	if !ok {
+		t.Fatalf("no pointer rule for the scoped skill; got %v", keysOf(byPath))
+	}
+	for _, want := range []string{
+		"paths:\n  - \"**/*_test.go\"",
+		"`go-testing` skill",
+		"Invoke it with the Skill tool",
+		"Reach for this when writing or reviewing a Go test.",
+		GeneratedMarker,
+	} {
+		if !strings.Contains(pointer, want) {
+			t.Errorf("pointer rule lacks %q:\n%s", want, pointer)
+		}
+	}
+	// The pointer carries none of the skill's body: that stays in the one
+	// place the store holds it.
+	if strings.Contains(pointer, "Long guidance") {
+		t.Errorf("pointer rule inlined the skill body:\n%s", pointer)
+	}
+	if _, ok := byPath[".claude/rules/qm/skills.planning.md"]; ok {
+		t.Error("an unscoped skill got a pointer rule")
+	}
+}

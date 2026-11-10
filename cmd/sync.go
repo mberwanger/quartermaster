@@ -126,11 +126,14 @@ func writeReport(out io.Writer, r *plan.Result, pruned int) {
 	}
 	fmt.Fprintf(&b, "  → rules       %d resident, %d scoped  (%d B resident)\n", resident, scoped, r.ResidentBytes)
 	if len(r.Skills) > 0 {
-		var assets int
+		var assets, pointed int
 		for _, s := range r.Skills {
 			assets += len(s.Assets)
+			if len(s.Scope) > 0 {
+				pointed++
+			}
 		}
-		fmt.Fprintf(&b, "  → skills      %d on demand (%d asset file(s))\n", len(r.Skills), assets)
+		fmt.Fprintf(&b, "  → skills      %d on demand, %d path-triggered (%d asset file(s))\n", len(r.Skills), pointed, assets)
 	}
 	if len(r.Agents) > 0 {
 		fmt.Fprintf(&b, "  → agents      %d delegated\n", len(r.Agents))

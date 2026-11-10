@@ -149,6 +149,7 @@ func Compute(dir string) (*Result, error) {
 				if err != nil {
 					return nil, err
 				}
+				sk.Scope = cd.Scope
 				sk.Digest, sk.Commit = b.Meta.Digest, b.Meta.Source.Commit
 				r.Skills = append(r.Skills, *sk)
 			}
