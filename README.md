@@ -31,6 +31,11 @@ After that, `qm sync` is the only command you need day to day — and the hooks 
 it for you. Sources and packages are listed in precedence order: when two bundles define
 the same rule, the later one wins.
 
+A repository set up by an earlier release, with `.quartermaster.yaml` and a
+`.quartermaster/` tree, is migrated by its next `qm sync`: the manifest is renamed,
+the tree regenerated under `.qm/`, and the `.gitignore` entry retargeted. Commit the
+rename and the settings file it reports.
+
 ## Commands
 
 Run `qm bundle …` in the repository that holds your knowledge. Run everything else in a

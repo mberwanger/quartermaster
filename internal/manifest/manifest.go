@@ -7,7 +7,9 @@
 package manifest
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -18,6 +20,10 @@ import (
 
 // FileName is the manifest a consumer commits at its repository root.
 const FileName = ".qm.yaml"
+
+// LegacyFileName is what an earlier release called the manifest. A repository
+// still carrying it loads, and qm sync renames it.
+const LegacyFileName = ".quartermaster.yaml"
 
 // Manifest is a parsed .qm.yaml.
 type Manifest struct {
@@ -65,10 +71,17 @@ type Budget struct {
 	ResidentBytes int `yaml:"resident_bytes"`
 }
 
-// Load reads the manifest from a repository directory.
+// Load reads the manifest from a repository directory. The legacy name is read
+// when the current one is absent, so a repository that has not synced since the
+// rename still resolves; the rename itself is sync's job, not a reader's.
 func Load(dir string) (*Manifest, error) {
 	p := filepath.Join(dir, FileName)
 	raw, err := os.ReadFile(p) //nolint:gosec // dir is a CLI flag, chosen by whoever runs the tool
+	if errors.Is(err, fs.ErrNotExist) {
+		if legacy, lerr := os.ReadFile(filepath.Join(dir, LegacyFileName)); lerr == nil { //nolint:gosec // same directory
+			raw, err = legacy, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

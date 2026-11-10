@@ -18,6 +18,10 @@ import (
 // Dir is the per-repository directory Quartermaster owns.
 const Dir = ".qm"
 
+// LegacyDir is what an earlier release called it. qm sync removes one it finds,
+// after carrying the state across.
+const LegacyDir = ".quartermaster"
+
 // fileName is the state file inside Dir.
 const fileName = "state.json"
 
@@ -44,7 +48,12 @@ type Bundle struct {
 // an error: the zero State is the correct starting point for a repository that
 // has never synced.
 func Load(dir string) (*State, error) {
-	raw, err := os.ReadFile(filepath.Join(dir, Dir, fileName)) //nolint:gosec // dir is a CLI flag
+	return LoadFrom(filepath.Join(dir, Dir))
+}
+
+// LoadFrom reads the state file inside an explicit state directory.
+func LoadFrom(stateDir string) (*State, error) {
+	raw, err := os.ReadFile(filepath.Join(stateDir, fileName)) //nolint:gosec // dir is a CLI flag
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return &State{}, nil

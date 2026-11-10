@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mberwanger/quartermaster/internal/plan"
+	"github.com/mberwanger/quartermaster/internal/repo"
 	"github.com/mberwanger/quartermaster/internal/state"
 	"github.com/mberwanger/quartermaster/internal/target"
 )
@@ -58,6 +59,23 @@ func (v *syncCmd) run(out io.Writer) error {
 // sync produced but this one does not, and records the new state. It is shared
 // by qm sync and qm init.
 func syncRepo(dir string, out io.Writer, quiet bool) error {
+	migrated, err := repo.Migrate(dir)
+	if err != nil {
+		return err
+	}
+	if len(migrated) > 0 {
+		// A repository arriving from the old names is also one that predates
+		// the session hook, and this is the one moment it is being upgraded.
+		if wrote, err := repo.InstallSessionHook(dir); err != nil {
+			return err
+		} else if wrote {
+			migrated = append(migrated, "installed the session hook in .claude/settings.json; commit it")
+		}
+		for _, line := range migrated {
+			fmt.Fprintf(out, "migrated: %s\n", line)
+		}
+	}
+
 	r, err := plan.Compute(dir)
 	if err != nil {
 		return err
