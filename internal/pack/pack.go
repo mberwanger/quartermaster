@@ -60,10 +60,10 @@ type Ref struct {
 	// `**` matches across segments, so `skills.data.*` takes a team's skills and
 	// `skills.**` takes every skill there is.
 	ID string
-	// Scope overrides where a rule applies, and is meaningless for skills and
-	// agents. A pointer, so an absent key and an empty list differ: absent
-	// defers to whatever the document declares, and an explicit empty list
-	// overrides that back to unscoped.
+	// Scope overrides where a rule applies, or which files a skill is pointed
+	// at, and is meaningless for agents. A pointer, so an absent key and an
+	// empty list differ: absent defers to whatever the document declares, and
+	// an explicit empty list overrides that back to unscoped.
 	Scope *[]string
 	// Where selects on frontmatter instead of on the id.
 	Where gate.Gate
@@ -365,10 +365,16 @@ func qualifies(kind Kind, d doc.Doc, opts Options) (bool, string) {
 	return true, ""
 }
 
-// scopeFor resolves where a rule applies. Skills and agents have no scope: they
-// are chosen when the work matches rather than loaded when a path does.
+// scopeFor resolves where a rule applies, or which files a skill is pointed at.
+//
+// A rule's scope decides when the harness loads it. A skill is never loaded by
+// path; it is chosen when the agent decides its description matches the work,
+// which in practice it rarely does. A skill's scope therefore produces a small
+// path-scoped rule beside it that tells the agent, when a matching file is
+// open, that the skill applies. Agents have no scope: delegation is a choice,
+// not a path.
 func scopeFor(kind Kind, ref Ref, d doc.Doc) []string {
-	if kind != KindRule {
+	if kind == KindAgent {
 		return nil
 	}
 	if ref.Scope != nil {

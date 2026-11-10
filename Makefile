@@ -53,44 +53,52 @@ lint-fix:
 fmt:
 	go fmt ./...
 
-.PHONY: verify # Verify go modules are tidy.
-verify:
+.PHONY: tidy-check # Fail if go.mod or go.sum is not tidy.
+tidy-check:
 	go mod tidy
 	@git diff --exit-code go.mod go.sum || (echo "go.mod or go.sum is not tidy" && exit 1)
 
-.PHONY: release # Tag and push the next version (auto-detected from commits).
-release:
-	@VERSION=$$(./tools/svu.sh next) && \
+.PHONY: verify # Run every pre-release check (lint, tests, tidy modules).
+verify: lint test tidy-check
+	@echo "All checks passed."
+
+# tag_release tags and pushes the version `svu $(1)` names, after a prompt.
+define tag_release
+	@VERSION=$$(./tools/svu.sh $(1)) && \
 	echo "Current version: $$(./tools/svu.sh current)" && \
 	echo "Next version:    $$VERSION" && \
 	echo "" && \
 	read -p "Proceed? [y/N] " confirm && [ "$$confirm" = "y" ] && \
 	git tag -a $$VERSION -m "Release $$VERSION" && \
 	git push origin $$VERSION
+endef
+
+.PHONY: release-check # Refuse to tag anything but a clean master that matches origin.
+release-check:
+	@branch=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$branch" != master ]; then echo "error: release from master, not $$branch" >&2; exit 1; fi
+	@if [ -n "$$(git status --porcelain --untracked-files=no)" ]; then \
+		echo "error: commit or stash your changes first; a tag names the commit, not the tree" >&2; exit 1; fi
+	@git fetch --quiet --tags origin master
+	@if [ "$$(git rev-parse HEAD)" != "$$(git rev-parse origin/master)" ]; then \
+		echo "error: HEAD is not origin/master; pull or push first" >&2; exit 1; fi
+	@$(MAKE) verify
+
+.PHONY: release # Tag and push the next version (auto-detected from commits).
+release: release-check
+	$(call tag_release,next)
 
 .PHONY: release-patch # Tag and push a patch release.
-release-patch:
-	@VERSION=$$(./tools/svu.sh patch) && \
-	echo "Current version: $$(./tools/svu.sh current)" && \
-	echo "Next version:    $$VERSION" && \
-	git tag -a $$VERSION -m "Release $$VERSION" && \
-	git push origin $$VERSION
+release-patch: release-check
+	$(call tag_release,patch)
 
 .PHONY: release-minor # Tag and push a minor release.
-release-minor:
-	@VERSION=$$(./tools/svu.sh minor) && \
-	echo "Current version: $$(./tools/svu.sh current)" && \
-	echo "Next version:    $$VERSION" && \
-	git tag -a $$VERSION -m "Release $$VERSION" && \
-	git push origin $$VERSION
+release-minor: release-check
+	$(call tag_release,minor)
 
 .PHONY: release-major # Tag and push a major release.
-release-major:
-	@VERSION=$$(./tools/svu.sh major) && \
-	echo "Current version: $$(./tools/svu.sh current)" && \
-	echo "Next version:    $$VERSION" && \
-	git tag -a $$VERSION -m "Release $$VERSION" && \
-	git push origin $$VERSION
+release-major: release-check
+	$(call tag_release,major)
 
 .PHONY: version # Show current and next version.
 version:

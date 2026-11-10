@@ -23,13 +23,31 @@ repository taking two teams' packages, scoping the knowledge it keeps on disk,
 and correctly refusing to promote a draft.
 
 `init` resolves the source, detects which agent tools the repository uses, writes
-`.qm.yaml`, adds the generated paths to `.gitignore`, installs `post-checkout`
-and `post-merge` hooks so the files stay current across branch switches, and runs the
-first sync.
+`.qm.yaml`, adds the generated paths to `.gitignore`, installs the hooks that keep the
+files current, and runs the first sync.
 
-After that, `qm sync` is the only command you need day to day — and the hooks usually run
-it for you. Sources and packages are listed in precedence order: when two bundles define
-the same rule, the later one wins.
+After that, `qm sync` is the only command you need day to day — and the hooks run it for
+you: `post-checkout` and `post-merge` after git moves the tree, and a Claude Code
+`SessionStart` hook when a session opens, so an agent reads what the store publishes
+today without anyone syncing by hand. Sources and packages are listed in precedence
+order: when two bundles define the same rule, the later one wins.
+
+### Staying current, or pinning
+
+By default the manifest names a tag and follows it; every sync records the digest it
+resolved to in `.qm/state.json`, and `qm status` shows it. Two ways to hold still:
+
+- `qm init --pin`, or a `digest:` line on a bundle entry, records the bundle's own
+  content digest. A sync still follows the tag but warns when the result differs, so
+  a repository that wants to move deliberately sees the move. Bump it like a dependency.
+- A registry digest in the source, `oci://host/repo@sha256:…`, is the hard pin. It
+  names one artifact, and nothing can move it. Use it where reproducibility is the
+  point, such as an evaluation that compares two bundles.
+
+A repository set up by an earlier release, with `.quartermaster.yaml` and a
+`.quartermaster/` tree, is migrated by its next `qm sync`: the manifest is renamed,
+the tree regenerated under `.qm/`, and the `.gitignore` entry retargeted. Commit the
+rename and the settings file it reports.
 
 ## Commands
 
@@ -49,8 +67,8 @@ repository that consumes it.
 | `qm sync` | Resolve, write the files, remove what no longer applies |
 | `qm verify` | Fail if generated files were edited or went stale |
 | `qm status` | Show what resolves today, and how much is always loaded |
+| `qm find <term>` | Search the delivered knowledge by id, title, and description |
 | `qm targets` | List the agent tools this build can write for |
-| `qm stats` | Report which knowledge agents actually read |
 
 ## How it works
 
@@ -94,6 +112,23 @@ Everything else in the bundle is written to `.qm/knowledge/` and enters the
 agent's context only if it goes looking. Because always-loaded rules cost context in every
 session, `qm status` reports their total against the `budget.resident_bytes` you set.
 
+A skill is loaded only when the agent asks for it, and an agent editing a test file does
+not reliably ask for the testing skill. A skill that declares a `scope` therefore gets a
+few-line path-scoped rule beside it that names the skill when a matching file is open.
+The rule carries none of the skill's body and costs nothing against the budget.
+
+### How an agent finds it
+
+Every sync writes one resident rule of its own, `qm.knowledge`, generated from what it
+delivered: where the tree is, how many documents each directory holds, which sources and
+packages they came from, and how to search. It tells the agent to read the delivered copy
+rather than another checkout of the store, and that the copy is current because the hooks
+keep it so.
+
+`qm find <term>` is the search it names. Every term must match; a hit in the id or title
+outranks one in the description, which outranks one in the body; a superseded document is
+left out. A grep finds every mention, this finds the document.
+
 ## Taking only the knowledge you need
 
 By default a repository gets the whole bundle on disk. Once a store serves a whole
@@ -121,79 +156,6 @@ store.
 Generated files are gitignored and safe to delete — `qm sync` rebuilds them. The one
 exception is the `AGENTS.md` block, which is committed; `qm verify` guards it, and
 anything you write outside the markers is left alone.
-
-## Finding out what gets read
-
-Writing a document is cheap; knowing whether anyone reads it is not. `qm stats`
-reports which documents agents opened, across every repository that records usage:
-
-```
-usage  all time · 7 event(s) · 3 document(s) · 2 repositories
-
-most opened
-     5  eng.experimental-cache     2 repos   last 2026-07-23
-
-retrievable here, never opened
-  billing.money-representation
-
-promotion candidates  (on disk here, opened in most repositories)
-  eng.experimental-cache          2/2 repos
-```
-
-The log is global rather than per repository, because promotion is a
-cross-repository decision: a document opened once in each of twelve repositories
-is a stronger candidate than one opened twelve times in a single one.
-
-Recording is opt-in per repository (`telemetry` in the manifest) and is written
-by hooks in your agent tool.
-
-`qm init` installs the session hook into the repository's own
-`.claude/settings.json`, which is committed. That is deliberate: it travels to
-every worktree and every clone the way the manifest does, rather than being
-configured once per machine and quietly missing wherever it was not. It is
-guarded with `command -v qm`, so it is inert for anyone who does not have the
-tool. Pass `--no-telemetry` to skip both the hook and the recording.
-
-The read-level hook is not installed for you, because it runs on every file read
-rather than once per session:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      { "matcher": "Read", "hooks": [{ "type": "command", "command": "qm usage record" }] }
-    ]
-  }
-}
-```
-
-The `PostToolUse` hook records a document id, every installed bundle, the
-repository, the worktree, and a timestamp. It never records prompt or file
-content, and anything outside the knowledge tree is ignored.
-
-The `SessionEnd` hook spools one line per session: the session id, where its
-transcript is on this machine, the repository, the worktree and branch, and the
-bundles installed at the time. It reads no transcript and copies no content. The
-bundle set is the reason it exists, since it is the one thing a transcript cannot
-reconstruct, and without it a later pass can count what happened but can never
-attribute a change to the document that caused it.
-
-Both hooks exit zero whatever happens. A repository that has opted out, a payload
-they do not recognise, and an unwritable log are all silent no-ops. Breaking a
-session to record a statistic would be a poor trade.
-
-The repository is named by its remote rather than by its path, so every worktree
-of one repository counts as one. That is what makes the cross-repository spread
-mean anything: a document opened in three checkouts of the same repository is one
-repository's worth of evidence, not three.
-
-**What this can and cannot tell you.** It reliably identifies documents nobody
-ever opens — which usually means the `description` is wrong, since that is all an
-agent sees when it decides whether to open something. It cannot tell a document
-that helped from one an agent opened and discarded. And it never proposes a
-demotion: an always-loaded rule is delivered by the harness rather than opened,
-so its absence from the log means nothing at all. Treat the output as a shortlist
-of things to look at, not a verdict.
 
 ## Sources
 

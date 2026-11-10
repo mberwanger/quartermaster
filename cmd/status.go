@@ -70,9 +70,15 @@ func (v *statusCmd) run(out io.Writer) error {
 		}
 	}
 
-	fmt.Fprintf(&b, "rules:     %d resident, %d scoped\n", resident, scoped)
+	fmt.Fprintf(&b, "rules:     %d resident, %d scoped, plus the knowledge guide\n", resident, scoped)
 	if len(r.Skills) > 0 {
-		fmt.Fprintf(&b, "skills:    %d on demand\n", len(r.Skills))
+		var pointed int
+		for _, s := range r.Skills {
+			if len(s.Scope) > 0 {
+				pointed++
+			}
+		}
+		fmt.Fprintf(&b, "skills:    %d on demand, %d path-triggered\n", len(r.Skills), pointed)
 	}
 	if len(r.Agents) > 0 {
 		fmt.Fprintf(&b, "agents:    %d delegated\n", len(r.Agents))

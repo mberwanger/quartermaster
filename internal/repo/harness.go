@@ -18,20 +18,23 @@ import (
 // worktree and every clone the same way the manifest travels.
 var claudeSettings = filepath.Join(".claude", "settings.json")
 
-// sessionHookEvent fires once when a session ends, while nobody is waiting.
-const sessionHookEvent = "SessionEnd"
+// sessionHookEvent fires when a session opens, before the agent reads anything.
+const sessionHookEvent = "SessionStart"
 
-// sessionHookCommand records the session that just ended.
+// sessionHookCommand brings the materialized knowledge up to date, so a session
+// opens on what the store publishes today rather than on what the last person
+// to run a sync happened to pull. A cached digest makes a no-change sync one
+// resolve against the registry; the files are rewritten only when it moved.
 //
 // The guard is the same one the git hooks use. This file is committed, so it
 // reaches people who have never installed Quartermaster, and for them the hook
-// has to be silently inert rather than an error at the end of every session.
-const sessionHookCommand = "command -v qm >/dev/null 2>&1 && qm trace record"
+// has to be silently inert rather than an error at the start of every session.
+const sessionHookCommand = "command -v qm >/dev/null 2>&1 && qm sync --quiet"
 
 // sessionHookMark identifies our hook inside a settings file somebody else also
 // edits. Matching on the command rather than on a marker comment is what makes
 // it work: JSON has no comments.
-const sessionHookMark = "qm trace record"
+const sessionHookMark = "qm sync"
 
 // InstallSessionHook adds the session hook to the repository's Claude Code
 // settings, and reports whether it wrote anything.
@@ -241,8 +244,8 @@ func SessionHookIgnored(dir string) bool {
 }
 
 // HasSessionHook reports whether the repository's settings already carry the
-// session hook, so a status command can tell a worktree that is recording from
-// one that only looks like it is.
+// session hook, so a status command can tell a repository that syncs itself from
+// one that only looks like it does.
 func HasSessionHook(dir string) bool {
 	raw, err := os.ReadFile(filepath.Join(dir, claudeSettings)) //nolint:gosec // path is inside the repository
 	if err != nil {

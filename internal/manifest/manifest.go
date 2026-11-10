@@ -7,7 +7,9 @@
 package manifest
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -19,6 +21,10 @@ import (
 // FileName is the manifest a consumer commits at its repository root.
 const FileName = ".qm.yaml"
 
+// LegacyFileName is what an earlier release called the manifest. A repository
+// still carrying it loads, and qm sync renames it.
+const LegacyFileName = ".quartermaster.yaml"
+
 // Manifest is a parsed .qm.yaml.
 type Manifest struct {
 	// Bundles are listed in precedence order. When two bundles produce a rule
@@ -28,8 +34,6 @@ type Manifest struct {
 	Bundles []Bundle `yaml:"bundles"`
 	// Targets names the harnesses to render for.
 	Targets []string `yaml:"targets"`
-	// Telemetry opts the repository in to usage logging.
-	Telemetry bool `yaml:"telemetry"`
 	// Budget bounds the resident set.
 	Budget Budget `yaml:"budget"`
 }
@@ -38,9 +42,13 @@ type Manifest struct {
 type Bundle struct {
 	// Source is the provider URL: oci://, file://, git+https://, or https://.
 	Source string `yaml:"source"`
-	// Digest pins the content. It is authoritative; the tag in Source is for
-	// readability. A file:// source tree has no stable digest and may leave it
-	// empty.
+	// Digest is the bundle's own content digest, the one meta.json carries. It
+	// is optional. Absent, the repository follows whatever the source resolves
+	// to, and the hooks keep it current. Present, a sync still resolves the
+	// source but warns when the result is not this, so a repository that
+	// wants to move deliberately sees the move. A hard pin is a registry digest
+	// in the source itself, as oci://host/repo@sha256:..., which names one
+	// artifact.
 	Digest string `yaml:"digest"`
 	// Use names the packages to apply from this bundle, in precedence order.
 	//
@@ -67,10 +75,17 @@ type Budget struct {
 	ResidentBytes int `yaml:"resident_bytes"`
 }
 
-// Load reads the manifest from a repository directory.
+// Load reads the manifest from a repository directory. The legacy name is read
+// when the current one is absent, so a repository that has not synced since the
+// rename still resolves; the rename itself is sync's job, not a reader's.
 func Load(dir string) (*Manifest, error) {
 	p := filepath.Join(dir, FileName)
 	raw, err := os.ReadFile(p) //nolint:gosec // dir is a CLI flag, chosen by whoever runs the tool
+	if errors.Is(err, fs.ErrNotExist) {
+		if legacy, lerr := os.ReadFile(filepath.Join(dir, LegacyFileName)); lerr == nil { //nolint:gosec // same directory
+			raw, err = legacy, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

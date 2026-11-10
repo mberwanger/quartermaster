@@ -17,15 +17,15 @@ import (
 )
 
 type initCmd struct {
-	cmd         *cobra.Command
-	dir         string
-	sources     []string
-	packages    []string
-	targets     []string
-	noTelemetry bool
-	noHooks     bool
-	noSync      bool
-	force       bool
+	cmd      *cobra.Command
+	dir      string
+	sources  []string
+	packages []string
+	targets  []string
+	pin      bool
+	noHooks  bool
+	noSync   bool
+	force    bool
 }
 
 func newInitCmd() *initCmd {
@@ -35,8 +35,17 @@ func newInitCmd() *initCmd {
 		Use:   "init",
 		Short: "First-time setup for a repository",
 		Long: `Set a repository up to consume knowledge: resolve the given sources, write
-the manifest, ready the .gitignore, install the git hooks that keep materialized
+the manifest, ready the .gitignore, install the hooks that keep materialized
 knowledge current, and run the first sync.
+
+The hooks are what make the knowledge self-updating. Git hooks sync after a
+checkout or a merge, and a Claude Code session hook syncs when a session opens,
+so an agent reads what the store publishes today without anyone running a sync
+by hand. The manifest therefore follows the source's tag by default; --pin
+records the digest the source resolved to today instead, for a repository that
+wants to move deliberately. A registry digest in the source itself, as
+oci://host/repo@sha256:..., is the hard pin: it names one artifact and nothing
+can move it.
 
 A package is a named selection the store maintains: it carries the rules, skills,
 and agents that belong together, so a repository names one rather than listing
@@ -54,7 +63,7 @@ not given explicitly.`,
 	cmd.Flags().StringArrayVar(&v.sources, "source", nil, "Bundle source URL (repeatable, precedence by order)")
 	cmd.Flags().StringArrayVar(&v.packages, "package", nil, "Packages to apply (repeatable; default all a source offers)")
 	cmd.Flags().StringArrayVar(&v.targets, "target", nil, "Harness targets (repeatable; default detected from the repository)")
-	cmd.Flags().BoolVar(&v.noTelemetry, "no-telemetry", false, "Opt out of usage telemetry, and of the session hook that feeds it")
+	cmd.Flags().BoolVar(&v.pin, "pin", false, "Record the digest each source resolves to, so a later sync warns when the source has moved")
 	cmd.Flags().BoolVar(&v.noHooks, "no-hooks", false, "Do not install git or harness hooks")
 	cmd.Flags().BoolVar(&v.noSync, "no-sync", false, "Do not run the first sync")
 	cmd.Flags().BoolVar(&v.force, "force", false, "Overwrite an existing manifest")
@@ -83,7 +92,7 @@ func (v *initCmd) run(out io.Writer) error {
 		return err
 	}
 
-	if err := writeManifest(manifestPath, bundles, targets, !v.noTelemetry); err != nil {
+	if err := writeManifest(manifestPath, bundles, targets); err != nil {
 		return err
 	}
 
@@ -109,11 +118,9 @@ func (v *initCmd) run(out io.Writer) error {
 			fmt.Fprintf(&report, "  hooks     skipped %s (already exists, not ours)\n", s)
 		}
 
-		// The session hook records what the repository looked like when a
-		// session ended, so it only makes sense where telemetry is on. It goes
-		// in the harness's own settings, and only for a harness that has the
-		// concept.
-		if !v.noTelemetry && slices.Contains(targets, "claude") {
+		// The session hook goes in the harness's own settings, and only for a
+		// harness that has the concept.
+		if slices.Contains(targets, "claude") {
 			wrote, err := repo.InstallSessionHook(v.dir)
 			if err != nil {
 				return err
@@ -143,7 +150,10 @@ func (v *initCmd) run(out io.Writer) error {
 	return syncRepo(v.dir, out, false)
 }
 
-// bundleSpec is one resolved source ready to write into the manifest.
+// bundleSpec is one resolved source ready to write into the manifest. pin says
+// whether the digest is written: a file:// tree has no stable digest, and a
+// remote source is only pinned when the author asked, because the hooks keep an
+// unpinned repository current by themselves and a pin is a reason to drift.
 type bundleSpec struct {
 	source   string
 	digest   string
@@ -190,7 +200,7 @@ func (v *initCmd) resolveSources() ([]bundleSpec, error) {
 		out = append(out, bundleSpec{
 			source:   src,
 			digest:   b.Meta.Digest,
-			pin:      !strings.HasPrefix(src, "file://"),
+			pin:      v.pin && !strings.HasPrefix(src, "file://"),
 			packages: names,
 		})
 	}
@@ -256,7 +266,7 @@ func ignorePatterns(targets []string) []string {
 	return patterns
 }
 
-func writeManifest(path string, bundles []bundleSpec, targets []string, telemetry bool) error {
+func writeManifest(path string, bundles []bundleSpec, targets []string) error {
 	var b strings.Builder
 	b.WriteString("# Quartermaster manifest. Declares the knowledge this repository consumes.\n")
 	b.WriteString("# Edit this file, then run `qm sync`. Generated files are gitignored, except\n")
@@ -275,8 +285,6 @@ func writeManifest(path string, bundles []bundleSpec, targets []string, telemetr
 	for _, t := range targets {
 		fmt.Fprintf(&b, "  - %s\n", t)
 	}
-
-	fmt.Fprintf(&b, "\ntelemetry: %t\n", telemetry)
 
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
