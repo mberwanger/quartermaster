@@ -6,11 +6,19 @@ BUILD_ROOT="${REPO_ROOT}/build"
 BUILD_BIN="${BUILD_ROOT}/bin"
 
 NAME=golangci-lint
-RELEASE=v2.11.3
-OSX_RELEASE_256=f93bda1f2cc981fd1326464020494be62f387bbf262706e1b3b644e5afacc440
-LINUX_RELEASE_256=87bb8cddbcc825d5778b64e8a91b46c0526b247f4e2f2904dea74ec7450475d1
+# The linter must be built with a Go at least as new as the toolchain that
+# compiles this module, or it cannot load the packages at all. Bump this when
+# bumping Go.
+RELEASE=v2.12.2
+DARWIN_AMD64_256=f6f06d94b6241521c53d15450c5209b028270bf966f842afb11c030c79f5bc16
+DARWIN_ARM64_256=a9c54498731b3128f79e090be6110f3e5fffccc617b08142ed244d4126c73f29
+LINUX_AMD64_256=8df580d2670fed8fa984aac0507099af8df275e665215f5c7a2ae3943893a553
+LINUX_ARM64_256=44cd40a8c76c86755375adfeea52cfd3533cb43d7bd647771e0ae065e166df3a
 
-ARCH=amd64
+case "$(uname -m)" in
+  arm64 | aarch64) ARCH=arm64 ;;
+  *) ARCH=amd64 ;;
+esac
 
 RELEASE_BINARY="${BUILD_BIN}/${NAME}-${RELEASE}"
 
@@ -26,16 +34,12 @@ ensure_binary() {
 
     mkdir -p "${BUILD_BIN}"
 
-    case "${OSTYPE}" in
-    "darwin"*)
-      os_type="darwin"
-      sum="${OSX_RELEASE_256}"
-      ;;
-    "linux"*)
-      os_type="linux"
-      sum="${LINUX_RELEASE_256}"
-      ;;
-    *) echo "error: Unsupported OS '${OSTYPE}' for shellcheck install, please install manually" && exit 1 ;;
+    case "${OSTYPE}-${ARCH}" in
+    darwin*-amd64) os_type="darwin"; sum="${DARWIN_AMD64_256}" ;;
+    darwin*-arm64) os_type="darwin"; sum="${DARWIN_ARM64_256}" ;;
+    linux*-amd64) os_type="linux"; sum="${LINUX_AMD64_256}" ;;
+    linux*-arm64) os_type="linux"; sum="${LINUX_ARM64_256}" ;;
+    *) echo "error: Unsupported platform '${OSTYPE}/${ARCH}' for ${NAME} install, please install manually" && exit 1 ;;
     esac
 
     release_archive="/tmp/${NAME}-${RELEASE}.tar.gz"
