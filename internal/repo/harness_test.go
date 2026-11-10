@@ -129,7 +129,7 @@ func TestInstallSessionHookKeepsOtherHooksOnTheSameEvent(t *testing.T) {
 	dir := t.TempDir()
 	writeSettings(t, dir, `{
   "hooks": {
-    "SessionEnd": [
+    "SessionStart": [
       { "hooks": [ { "type": "command", "command": "somebody-elses-tool" } ] }
     ]
   }
@@ -141,20 +141,20 @@ func TestInstallSessionHookKeepsOtherHooksOnTheSameEvent(t *testing.T) {
 
 	var parsed struct {
 		Hooks struct {
-			SessionEnd []struct {
+			SessionStart []struct {
 				Hooks []struct {
 					Command string `json:"command"`
 				} `json:"hooks"`
-			} `json:"SessionEnd"`
+			} `json:"SessionStart"`
 		} `json:"hooks"`
 	}
 	if err := json.Unmarshal([]byte(readSettings(t, dir)), &parsed); err != nil {
 		t.Fatal(err)
 	}
-	if len(parsed.Hooks.SessionEnd) != 2 {
-		t.Fatalf("SessionEnd has %d entries, want 2", len(parsed.Hooks.SessionEnd))
+	if len(parsed.Hooks.SessionStart) != 2 {
+		t.Fatalf("SessionStart has %d entries, want 2", len(parsed.Hooks.SessionStart))
 	}
-	if parsed.Hooks.SessionEnd[0].Hooks[0].Command != "somebody-elses-tool" {
+	if parsed.Hooks.SessionStart[0].Hooks[0].Command != "somebody-elses-tool" {
 		t.Error("the other tool's hook was displaced")
 	}
 }

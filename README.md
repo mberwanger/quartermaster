@@ -50,7 +50,6 @@ repository that consumes it.
 | `qm verify` | Fail if generated files were edited or went stale |
 | `qm status` | Show what resolves today, and how much is always loaded |
 | `qm targets` | List the agent tools this build can write for |
-| `qm stats` | Report which knowledge agents actually read |
 
 ## How it works
 
@@ -121,79 +120,6 @@ store.
 Generated files are gitignored and safe to delete — `qm sync` rebuilds them. The one
 exception is the `AGENTS.md` block, which is committed; `qm verify` guards it, and
 anything you write outside the markers is left alone.
-
-## Finding out what gets read
-
-Writing a document is cheap; knowing whether anyone reads it is not. `qm stats`
-reports which documents agents opened, across every repository that records usage:
-
-```
-usage  all time · 7 event(s) · 3 document(s) · 2 repositories
-
-most opened
-     5  eng.experimental-cache     2 repos   last 2026-07-23
-
-retrievable here, never opened
-  billing.money-representation
-
-promotion candidates  (on disk here, opened in most repositories)
-  eng.experimental-cache          2/2 repos
-```
-
-The log is global rather than per repository, because promotion is a
-cross-repository decision: a document opened once in each of twelve repositories
-is a stronger candidate than one opened twelve times in a single one.
-
-Recording is opt-in per repository (`telemetry` in the manifest) and is written
-by hooks in your agent tool.
-
-`qm init` installs the session hook into the repository's own
-`.claude/settings.json`, which is committed. That is deliberate: it travels to
-every worktree and every clone the way the manifest does, rather than being
-configured once per machine and quietly missing wherever it was not. It is
-guarded with `command -v qm`, so it is inert for anyone who does not have the
-tool. Pass `--no-telemetry` to skip both the hook and the recording.
-
-The read-level hook is not installed for you, because it runs on every file read
-rather than once per session:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      { "matcher": "Read", "hooks": [{ "type": "command", "command": "qm usage record" }] }
-    ]
-  }
-}
-```
-
-The `PostToolUse` hook records a document id, every installed bundle, the
-repository, the worktree, and a timestamp. It never records prompt or file
-content, and anything outside the knowledge tree is ignored.
-
-The `SessionEnd` hook spools one line per session: the session id, where its
-transcript is on this machine, the repository, the worktree and branch, and the
-bundles installed at the time. It reads no transcript and copies no content. The
-bundle set is the reason it exists, since it is the one thing a transcript cannot
-reconstruct, and without it a later pass can count what happened but can never
-attribute a change to the document that caused it.
-
-Both hooks exit zero whatever happens. A repository that has opted out, a payload
-they do not recognise, and an unwritable log are all silent no-ops. Breaking a
-session to record a statistic would be a poor trade.
-
-The repository is named by its remote rather than by its path, so every worktree
-of one repository counts as one. That is what makes the cross-repository spread
-mean anything: a document opened in three checkouts of the same repository is one
-repository's worth of evidence, not three.
-
-**What this can and cannot tell you.** It reliably identifies documents nobody
-ever opens — which usually means the `description` is wrong, since that is all an
-agent sees when it decides whether to open something. It cannot tell a document
-that helped from one an agent opened and discarded. And it never proposes a
-demotion: an always-loaded rule is delivered by the harness rather than opened,
-so its absence from the log means nothing at all. Treat the output as a shortlist
-of things to look at, not a verdict.
 
 ## Sources
 

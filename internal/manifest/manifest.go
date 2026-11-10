@@ -28,8 +28,6 @@ type Manifest struct {
 	Bundles []Bundle `yaml:"bundles"`
 	// Targets names the harnesses to render for.
 	Targets []string `yaml:"targets"`
-	// Telemetry opts the repository in to usage logging.
-	Telemetry bool `yaml:"telemetry"`
 	// Budget bounds the resident set.
 	Budget Budget `yaml:"budget"`
 }

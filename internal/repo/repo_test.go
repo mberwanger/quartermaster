@@ -137,3 +137,40 @@ func mustRead(t *testing.T, dir string) []byte {
 	}
 	return b
 }
+
+// worktreePair lays out a main worktree and a linked one that shares its git
+// directory, the way git worktree add does, so a hook written from the linked
+// one can be checked to land in the shared directory.
+func worktreePair(t *testing.T, remote string) (main, linked string) {
+	t.Helper()
+
+	root := t.TempDir()
+	main = filepath.Join(root, "main")
+	shared := filepath.Join(main, ".git")
+	linkedGit := filepath.Join(shared, "worktrees", "feature")
+	linked = filepath.Join(root, "feature")
+
+	for _, d := range []string{shared, linkedGit, linked} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	config := "[core]\n\tbare = false\n"
+	if remote != "" {
+		config += "[remote \"origin\"]\n\turl = " + remote + "\n"
+	}
+	write := map[string]string{
+		filepath.Join(shared, "config"):       config,
+		filepath.Join(shared, "HEAD"):         "ref: refs/heads/master\n",
+		filepath.Join(linkedGit, "commondir"): "../..\n",
+		filepath.Join(linkedGit, "HEAD"):      "ref: refs/heads/feature\n",
+		filepath.Join(linked, ".git"):         "gitdir: " + linkedGit + "\n",
+	}
+	for path, body := range write {
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return main, linked
+}

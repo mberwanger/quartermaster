@@ -17,9 +17,6 @@ directories. Nothing touches your real cache, usage log, spool, or facets.
 ```bash
 export QM_TRIAL="$(mktemp -d)"
 export QM_CACHE_DIR="$QM_TRIAL/cache"
-export QM_USAGE_DIR="$QM_TRIAL/usage"
-export QM_TRACE_DIR="$QM_TRIAL/spool"
-export QM_FACET_DIR="$QM_TRIAL/facets"
 
 STORE=~/Development/mberwanger/quartermaster-knowledge
 cd ~/Development/mberwanger/quartermaster && go build -o "$QM_TRIAL/qm" .
@@ -122,7 +119,7 @@ cat "$REPO/.claude/settings.json"
 ```
 
 - **`.qm.yaml`** is the only file you edit. It names sources,
-  packages, targets, and whether telemetry is on.
+  packages, and targets.
 - **`.gitignore`** gains the generated paths, because generated output is not
   committed.
 - **git hooks** `post-checkout` and `post-merge` run `qm sync --quiet`. They
@@ -300,40 +297,6 @@ ls "$REPO/.qm/knowledge/" | head -3
 Sync reports what it removed (`pruned 8`), the rule count is now zero, and the
 knowledge tree is untouched. Removing a package removes injection, not knowledge,
 which is the same point `packages.json` made in step 1 from the other direction.
-
----
-
-## 8. Telemetry, and what it will and will not tell you
-
-Two hooks, both opt-in per repository through `telemetry:` in the manifest, both
-silent no-ops when anything is off.
-
-```bash
-DOC=$(find "$REPO/.qm/knowledge" -name '*.md' ! -name index.md | head -1)
-$QM usage record "$DOC"
-cat "$QM_USAGE_DIR"/*.jsonl | jq -c '{id, repo, worktree}'
-```
-
-Note `repo` is `github.com/example/demo`, derived from the remote rather than
-from the path. Every worktree of one repository counts as one, which is what
-makes the cross-repository spread mean anything.
-
-```bash
-printf '{"session_id":"walkthrough-1","cwd":"%s","hook_event_name":"SessionEnd"}' "$REPO" | $QM trace record
-jq -c '{session_id, repo, branch, bundles}' "$QM_TRACE_DIR/pending.jsonl"
-```
-
-A read outside the knowledge tree records nothing:
-
-```bash
-$QM usage record "$REPO/.qm.yaml"; echo "exit: $?"
-```
-
-`qm stats` reads the log. It will tell you which documents nobody opens, which
-usually means the description is wrong, since that is all an agent sees when it
-decides whether to open something. It cannot tell a document that helped from one
-an agent opened and discarded, and it never proposes demoting a rule, because a
-resident rule is delivered by the harness rather than opened.
 
 ---
 
