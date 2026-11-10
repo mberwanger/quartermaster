@@ -174,7 +174,7 @@ func buildAt(t *testing.T, listings string) *Bundle {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(cfgPath, append(raw, []byte("listings: "+listings+"\n")...), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, append(raw, []byte("\nlistings: "+listings+"\n")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := config.Load(root)
@@ -206,9 +206,14 @@ func file(b *Bundle, p string) (string, bool) {
 func TestBuildWritesListings(t *testing.T) {
 	b := buildAt(t, config.ListingsBuild)
 
+	committed, err := os.ReadFile(filepath.Join(fixture, "index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prose, _, _ := strings.Cut(string(committed), "<!-- BEGIN GENERATED -->")
 	root, ok := file(b, "index.md")
-	if !ok || !strings.Contains(root, "# Example store") || !strings.Contains(root, "engineering") || !strings.Contains(root, "<!-- BEGIN GENERATED -->") {
-		t.Errorf("root index = %q, want the prose and a listing naming engineering", root)
+	if !ok || !strings.HasPrefix(root, strings.TrimRight(prose, "\n")) || !strings.Contains(root, "<!-- BEGIN GENERATED -->") || !strings.Contains(root, "engineering/") {
+		t.Errorf("root index = %q, want the store's prose and a listing naming engineering", root)
 	}
 	eng, ok := file(b, "engineering/index.md")
 	if !ok || !strings.Contains(eng, "errors.md") || !strings.Contains(eng, "logging.md") {

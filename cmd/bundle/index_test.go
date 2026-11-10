@@ -33,7 +33,7 @@ func TestIndexAtBuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(cfgPath, append(raw, []byte("listings: build\n")...), 0o600); err != nil {
+	if err := os.WriteFile(cfgPath, append(raw, []byte("\nlistings: build\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
