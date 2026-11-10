@@ -42,9 +42,13 @@ type Manifest struct {
 type Bundle struct {
 	// Source is the provider URL: oci://, file://, git+https://, or https://.
 	Source string `yaml:"source"`
-	// Digest pins the content. It is authoritative; the tag in Source is for
-	// readability. A file:// source tree has no stable digest and may leave it
-	// empty.
+	// Digest is the bundle's own content digest, the one meta.json carries. It
+	// is optional. Absent, the repository follows whatever the source resolves
+	// to, and the hooks keep it current. Present, a sync still resolves the
+	// source but warns when the result is not this, so a repository that
+	// wants to move deliberately sees the move. A hard pin is a registry digest
+	// in the source itself, as oci://host/repo@sha256:..., which names one
+	// artifact.
 	Digest string `yaml:"digest"`
 	// Use names the packages to apply from this bundle, in precedence order.
 	//

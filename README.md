@@ -23,13 +23,26 @@ repository taking two teams' packages, scoping the knowledge it keeps on disk,
 and correctly refusing to promote a draft.
 
 `init` resolves the source, detects which agent tools the repository uses, writes
-`.qm.yaml`, adds the generated paths to `.gitignore`, installs `post-checkout`
-and `post-merge` hooks so the files stay current across branch switches, and runs the
-first sync.
+`.qm.yaml`, adds the generated paths to `.gitignore`, installs the hooks that keep the
+files current, and runs the first sync.
 
-After that, `qm sync` is the only command you need day to day — and the hooks usually run
-it for you. Sources and packages are listed in precedence order: when two bundles define
-the same rule, the later one wins.
+After that, `qm sync` is the only command you need day to day — and the hooks run it for
+you: `post-checkout` and `post-merge` after git moves the tree, and a Claude Code
+`SessionStart` hook when a session opens, so an agent reads what the store publishes
+today without anyone syncing by hand. Sources and packages are listed in precedence
+order: when two bundles define the same rule, the later one wins.
+
+### Staying current, or pinning
+
+By default the manifest names a tag and follows it; every sync records the digest it
+resolved to in `.qm/state.json`, and `qm status` shows it. Two ways to hold still:
+
+- `qm init --pin`, or a `digest:` line on a bundle entry, records the bundle's own
+  content digest. A sync still follows the tag but warns when the result differs, so
+  a repository that wants to move deliberately sees the move. Bump it like a dependency.
+- A registry digest in the source, `oci://host/repo@sha256:…`, is the hard pin. It
+  names one artifact, and nothing can move it. Use it where reproducibility is the
+  point, such as an evaluation that compares two bundles.
 
 A repository set up by an earlier release, with `.quartermaster.yaml` and a
 `.quartermaster/` tree, is migrated by its next `qm sync`: the manifest is renamed,

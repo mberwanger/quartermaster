@@ -91,7 +91,11 @@ func Compute(dir string) (*Result, error) {
 			return nil, fmt.Errorf("resolve %s: %w", mb.Source, err)
 		}
 		if mb.Digest != "" && b.Meta.Digest != mb.Digest {
-			r.Warnings = append(r.Warnings, fmt.Sprintf("%s resolved to %s, manifest pins %s", mb.Source, b.Meta.Digest, mb.Digest))
+			// The field is the bundle's content digest, not the registry's.
+			// Both are sha256 and a registry UI shows only its own, so the
+			// warning says which one it compared, or the author pins the
+			// wrong one and never finds out why it keeps warning.
+			r.Warnings = append(r.Warnings, fmt.Sprintf("%s resolved to bundle digest %s, manifest pins %s (a registry digest belongs in the source, as @sha256:...)", mb.Source, b.Meta.Digest, mb.Digest))
 		}
 
 		bodyByPath := make(map[string][]byte, len(b.Files))
