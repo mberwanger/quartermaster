@@ -39,6 +39,7 @@ Consumer commands — init, sync, verify, status — stay at the top level.`,
 		newExplainCmd().cmd,
 		newIndexCmd().cmd,
 		newPublishCmd().cmd,
+		newPullCmd().cmd,
 	)
 
 	return cmd

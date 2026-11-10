@@ -44,6 +44,7 @@ repository that consumes it.
 | `qm bundle build` | Compile a source tree into a bundle |
 | `qm bundle explain <id>` | Show why a document did or did not become a rule |
 | `qm bundle publish` | Push a built bundle to a registry |
+| `qm bundle pull <source>` | Resolve any source and write the artifact out, with no consuming repository |
 | `qm init` | Set a repository up and run the first sync |
 | `qm sync` | Resolve, write the files, remove what no longer applies |
 | `qm verify` | Fail if generated files were edited or went stale |
