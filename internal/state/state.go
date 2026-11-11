@@ -36,8 +36,11 @@ type State struct {
 
 // Bundle records a resolved source and the digest it resolved to.
 type Bundle struct {
-	Source   string   `json:"source"`
-	Digest   string   `json:"digest"`
+	Source string `json:"source"`
+	Digest string `json:"digest"`
+	// Commit is the store commit the bundle was built from, as its metadata
+	// records it, so what an agent read can be traced to the store's history.
+	Commit   string   `json:"commit,omitempty"`
 	Packages []string `json:"packages"`
 	// Knowledge names the frontmatter fields the repository filtered the
 	// knowledge tree on, so a partial tree is never mistaken for the whole one.

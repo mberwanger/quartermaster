@@ -199,6 +199,7 @@ func Compute(dir string) (*Result, error) {
 		r.Bundles = append(r.Bundles, state.Bundle{
 			Source:    mb.Source,
 			Digest:    b.Meta.Digest,
+			Commit:    b.Meta.Source.Commit,
 			Packages:  mb.Use,
 			Knowledge: mb.Knowledge.Fields(),
 		})
