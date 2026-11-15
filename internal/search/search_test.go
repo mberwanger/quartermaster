@@ -43,8 +43,8 @@ func tree() []Entry {
 			"Stopped.\n"),
 		entry("records/current.md", map[string]any{"id": "records.current", "title": "An apply holds only when it left something unwritten"},
 			"The hold.\n"),
-		entry("records/what.md", map[string]any{"id": "product.what-admiral-is", "title": "What Admiral is"}, "Admiral.\n"),
-		entry("records/admiral-a.md", map[string]any{"id": "records.admiral-deploys", "title": "Admiral deploys Admiral"}, "Admiral admiral admiral admiral.\n"),
+		entry("records/what.md", map[string]any{"id": "product.what-acme-is", "title": "What Acme is"}, "Acme.\n"),
+		entry("records/acme-a.md", map[string]any{"id": "records.acme-ships", "title": "Acme ships Acme"}, "Acme acme acme acme.\n"),
 		entry("records/decision.md", map[string]any{"id": "records.decision", "title": "A decision", "description": "Decisions decide."}, "A decision.\n"),
 	}
 }
@@ -88,9 +88,9 @@ func TestQueryPrefersAWholeWord(t *testing.T) {
 // A title that holds every typed word, filler included, is the answer, even
 // when the one word left after filler is in every document.
 func TestQueryTitleHoldingEveryWordWins(t *testing.T) {
-	got := ids(Query(tree(), []string{"what is admiral"}, Options{}).Hits)
-	if len(got) == 0 || got[0] != "product.what-admiral-is" {
-		t.Errorf("want product.what-admiral-is first, got %v", got)
+	got := ids(Query(tree(), []string{"what is acme"}, Options{}).Hits)
+	if len(got) == 0 || got[0] != "product.what-acme-is" {
+		t.Errorf("want product.what-acme-is first, got %v", got)
 	}
 }
 
@@ -142,7 +142,7 @@ func TestWords(t *testing.T) {
 	}{
 		{"how should a cli choose an exit code", []string{"cli", "choose", "exit", "code"}, "how should a cli choose an exit code"},
 		{"Two goals, one page", []string{"two", "goals", "one", "page"}, "two goals one page"},
-		{"state.admiral.io", []string{"state.admiral.io"}, ""},
+		{"api.example.com", []string{"api.example.com"}, ""},
 		{"auto-merge?", []string{"auto-merge"}, ""},
 		{"what is", []string{"what", "is"}, "what is"},
 	} {
@@ -191,19 +191,19 @@ func TestQueryRetiredByStatusAlone(t *testing.T) {
 }
 
 // An alias is a word a reader searches for when a document is the answer. A
-// document that names "rollback" only as an alias outranks one that discusses
-// rollbacks at length, and the hit says which alias matched.
+// document that names "login" only as an alias outranks one that says login
+// again and again, and the hit says which alias matched.
 func TestQueryRanksAnAliasLikeATitle(t *testing.T) {
 	es := []Entry{
-		entry("records/migration.md", map[string]any{"id": "records.migration", "title": "A migration is read by the release before it"},
-			"A rollback runs the release before. Rollback is safe. Every rollback works. A rollback again.\n"),
-		entry("product/positioning.md", map[string]any{"id": "product.positioning", "title": "Positioning", "aliases": []any{"rollback", "roll back", "undo"}},
-			"| revert | applying an earlier change again. Never rolls back in place |\n"),
+		entry("records/sessions.md", map[string]any{"id": "records.sessions", "title": "A session outlives the tab"},
+			"A login starts a session. Login is cheap. Every login counts. A login again.\n"),
+		entry("product/glossary.md", map[string]any{"id": "product.glossary", "title": "Glossary", "aliases": []any{"login", "log in", "sign on"}},
+			"| sign in | entering your account. Never called logging in |\n"),
 	}
-	for _, q := range []string{"rollback", "roll back", "undo"} {
+	for _, q := range []string{"login", "log in", "sign on"} {
 		res := Query(es, []string{q}, Options{})
-		if len(res.Hits) == 0 || res.Hits[0].ID() != "product.positioning" {
-			t.Errorf("%q: want product.positioning first, got %v", q, ids(res.Hits))
+		if len(res.Hits) == 0 || res.Hits[0].ID() != "product.glossary" {
+			t.Errorf("%q: want product.glossary first, got %v", q, ids(res.Hits))
 			continue
 		}
 		if res.Hits[0].Alias == "" {
@@ -216,14 +216,14 @@ func TestQueryRanksAnAliasLikeATitle(t *testing.T) {
 // word and one carrying it as an alias score the same, and listing a title
 // again as an alias earns nothing more than the word itself.
 func TestAnAliasRanksNoHigherThanATitle(t *testing.T) {
-	titled := entry("a.md", map[string]any{"id": "a.titled", "title": "Rollback"}, "Text.\n")
-	aliased := entry("b.md", map[string]any{"id": "b.aliased", "title": "Glossary", "aliases": []any{"rollback"}}, "Text.\n")
-	for _, q := range []string{"rollback", "roll back"} {
+	titled := entry("a.md", map[string]any{"id": "a.titled", "title": "Login"}, "Text.\n")
+	aliased := entry("b.md", map[string]any{"id": "b.aliased", "title": "Glossary", "aliases": []any{"login"}}, "Text.\n")
+	for _, q := range []string{"login", "log in"} {
 		es := []Entry{titled, aliased}
-		if q == "roll back" {
+		if q == "log in" {
 			es = []Entry{
-				entry("a.md", map[string]any{"id": "a.titled", "title": "Roll back"}, "Text.\n"),
-				entry("b.md", map[string]any{"id": "b.aliased", "title": "Glossary", "aliases": []any{"roll back"}}, "Text.\n"),
+				entry("a.md", map[string]any{"id": "a.titled", "title": "Log in"}, "Text.\n"),
+				entry("b.md", map[string]any{"id": "b.aliased", "title": "Glossary", "aliases": []any{"log in"}}, "Text.\n"),
 			}
 		}
 		res := Query(es, []string{q}, Options{})
@@ -232,9 +232,9 @@ func TestAnAliasRanksNoHigherThanATitle(t *testing.T) {
 		}
 	}
 
-	self := entry("c.md", map[string]any{"id": "c.self", "title": "Revert", "aliases": []any{"revert"}}, "Text.\n")
-	plain := entry("d.md", map[string]any{"id": "d.plain", "title": "Revert"}, "Text.\n")
-	res := Query([]Entry{self, plain}, []string{"revert"}, Options{})
+	self := entry("c.md", map[string]any{"id": "c.self", "title": "Checkout", "aliases": []any{"checkout"}}, "Text.\n")
+	plain := entry("d.md", map[string]any{"id": "d.plain", "title": "Checkout"}, "Text.\n")
+	res := Query([]Entry{self, plain}, []string{"checkout"}, Options{})
 	if len(res.Hits) != 2 || res.Hits[0].Score > 1.5*res.Hits[1].Score {
 		t.Errorf("an alias repeating the title bought a large lead: %+v", scores(res.Hits))
 	}
@@ -280,7 +280,7 @@ func scores(hits []Hit) []float64 {
 
 // An aliases field of the wrong shape yields no aliases rather than an error.
 func TestAliasesToleratesAWrongShape(t *testing.T) {
-	for _, v := range []any{"rollback", 3, []any{1, " ", "undo"}} {
+	for _, v := range []any{"login", 3, []any{1, " ", "undo"}} {
 		got := Aliases(doc.Doc{Frontmatter: map[string]any{"aliases": v}})
 		if len(got) > 1 || (len(got) == 1 && got[0] != "undo") {
 			t.Errorf("Aliases(%v) = %v", v, got)
