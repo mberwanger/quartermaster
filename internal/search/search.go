@@ -201,7 +201,10 @@ func index(e Entry) fields {
 		prose: strings.ToLower(string(e.Prose)),
 	}
 	for _, a := range Aliases(e.Doc) {
-		if n := normalize(a); n != "" {
+		// Normalizing folds punctuation away, so "C++" would become "c" and
+		// claim every search for a single letter. An alias that keeps fewer
+		// than two characters names nothing a reader would search for.
+		if n := normalize(a); len([]rune(n)) >= 2 {
 			f.aliases = append(f.aliases, n)
 		}
 	}
@@ -246,8 +249,9 @@ func score(e Entry, f fields, words []string, phrase string, idf map[string]floa
 	for _, w := range words {
 		s := 0.0
 		s += wID * weight(f.id, w)
-		s += wTitle * weight(f.title, w)
-		s += wAlias * aliasWeight(f.aliases, w)
+		// The title and the aliases are one field: a word earns the better of
+		// the two, never both, so repeating the title as an alias buys nothing.
+		s += max(wTitle*weight(f.title, w), wAlias*aliasWeight(f.aliases, w))
 		s += wDesc * weight(f.desc, w)
 		s += wPath * weight(f.path, w)
 		for _, l := range f.heads {
@@ -278,34 +282,15 @@ func score(e Entry, f fields, words []string, phrase string, idf map[string]floa
 	total *= coverage * coverage
 
 	typedAll := typedWords(phrase, words)
-	exact := normalize(strings.Join(typedAll, " "))
-	alias := ""
-	for _, a := range f.aliases {
-		if a == exact || (len(typedAll) > 1 && titleHoldsAll(a, typedAll)) {
-			alias = a
-			break
-		}
-	}
-	if alias == "" {
-		for _, a := range f.aliases {
-			for _, w := range words {
-				if weight(a, w) > 0 {
-					alias = a
-					break
-				}
-			}
-			if alias != "" {
-				break
-			}
-		}
-	}
-	h.Alias = alias
+	h.Alias = bestAlias(f.aliases, words)
 
 	switch {
+	// A title, or an alias, that holds every typed word is naming the
+	// document. The same rule applies to both, so an alias never ranks above
+	// a title that says the same thing.
 	case titleHoldsAll(f.title, typedAll):
 		total += wPhraseTitle * float64(len(words))
-	// Typing an alias whole is naming the document, as typing its title is.
-	case alias != "" && (alias == exact || (len(typedAll) > 1 && titleHoldsAll(alias, typedAll))):
+	case anyHoldsAll(f.aliases, typedAll):
 		total += wPhraseTitle * float64(len(words))
 	case phrase != "":
 		switch {
@@ -336,6 +321,31 @@ func Aliases(d doc.Doc) []string {
 		}
 	}
 	return out
+}
+
+// bestAlias is the alias that earned the most, the one aliasWeight scored, so
+// the hit names the alias that actually put the document where it is.
+func bestAlias(aliases, words []string) string {
+	best, at := 0.0, ""
+	for _, a := range aliases {
+		got := 0.0
+		for _, w := range words {
+			got += weight(a, w)
+		}
+		if got > best {
+			best, at = got, a
+		}
+	}
+	return at
+}
+
+func anyHoldsAll(aliases, words []string) bool {
+	for _, a := range aliases {
+		if titleHoldsAll(a, words) {
+			return true
+		}
+	}
+	return false
 }
 
 // aliasWeight is how strongly the best of a document's aliases holds a word.

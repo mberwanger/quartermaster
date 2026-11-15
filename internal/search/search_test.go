@@ -210,10 +210,72 @@ func TestQueryRanksAnAliasLikeATitle(t *testing.T) {
 			t.Errorf("%q: the hit does not say which alias matched", q)
 		}
 	}
-	// A document without aliases ranks as it always did.
-	if got := ids(Query(es[:1], []string{"rollback"}, Options{}).Hits); len(got) != 1 {
-		t.Errorf("want the migration record alone, got %v", got)
+}
+
+// An alias ranks like a title, never above one. A document titled with the
+// word and one carrying it as an alias score the same, and listing a title
+// again as an alias earns nothing more than the word itself.
+func TestAnAliasRanksNoHigherThanATitle(t *testing.T) {
+	titled := entry("a.md", map[string]any{"id": "a.titled", "title": "Rollback"}, "Text.\n")
+	aliased := entry("b.md", map[string]any{"id": "b.aliased", "title": "Glossary", "aliases": []any{"rollback"}}, "Text.\n")
+	for _, q := range []string{"rollback", "roll back"} {
+		es := []Entry{titled, aliased}
+		if q == "roll back" {
+			es = []Entry{
+				entry("a.md", map[string]any{"id": "a.titled", "title": "Roll back"}, "Text.\n"),
+				entry("b.md", map[string]any{"id": "b.aliased", "title": "Glossary", "aliases": []any{"roll back"}}, "Text.\n"),
+			}
+		}
+		res := Query(es, []string{q}, Options{})
+		if len(res.Hits) != 2 || res.Hits[0].Score != res.Hits[1].Score {
+			t.Errorf("%q: want equal scores, got %+v", q, scores(res.Hits))
+		}
 	}
+
+	self := entry("c.md", map[string]any{"id": "c.self", "title": "Revert", "aliases": []any{"revert"}}, "Text.\n")
+	plain := entry("d.md", map[string]any{"id": "d.plain", "title": "Revert"}, "Text.\n")
+	res := Query([]Entry{self, plain}, []string{"revert"}, Options{})
+	if len(res.Hits) != 2 || res.Hits[0].Score > 1.5*res.Hits[1].Score {
+		t.Errorf("an alias repeating the title bought a large lead: %+v", scores(res.Hits))
+	}
+}
+
+// Documents without aliases rank exactly as they did before aliases existed,
+// whatever other documents carry.
+func TestAliasesChangeNothingForDocumentsWithout(t *testing.T) {
+	base := tree()
+	before := Query(base, []string{"how should a cli choose an exit code"}, Options{}).Hits
+	with := append(tree(), entry("z.md", map[string]any{"id": "z.unrelated", "title": "Unrelated", "aliases": []any{"zebra"}}, "Zebra.\n"))
+	after := Query(with, []string{"how should a cli choose an exit code"}, Options{}).Hits
+	if !slices.Equal(ids(before), ids(after)) {
+		t.Errorf("ranking moved: %v then %v", ids(before), ids(after))
+	}
+}
+
+// The hit names the alias that earned the score, not the first that touched
+// a word.
+func TestTheNamedAliasIsTheOneThatScored(t *testing.T) {
+	e := entry("a.md", map[string]any{"id": "a.x", "title": "Shipping", "aliases": []any{"redeployment", "deploy"}}, "Text.\n")
+	res := Query([]Entry{e}, []string{"deploy now"}, Options{})
+	if len(res.Hits) != 1 || res.Hits[0].Alias != "deploy" {
+		t.Errorf("want alias deploy, got %+v", res.Hits)
+	}
+}
+
+// An alias that normalizes to a single character is dropped.
+func TestAPunctuationAliasClaimsNothing(t *testing.T) {
+	e := entry("a.md", map[string]any{"id": "a.x", "title": "Languages", "aliases": []any{"C++"}}, "Text.\n")
+	if got := Query([]Entry{e}, []string{"c"}, Options{}).Hits; len(got) != 0 {
+		t.Errorf("C++ claimed the search for c: %v", ids(got))
+	}
+}
+
+func scores(hits []Hit) []float64 {
+	var out []float64
+	for _, h := range hits {
+		out = append(out, h.Score)
+	}
+	return out
 }
 
 // An aliases field of the wrong shape yields no aliases rather than an error.
