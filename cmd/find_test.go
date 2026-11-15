@@ -38,8 +38,8 @@ func find(t *testing.T, dir, docType string, terms ...string) string {
 	return out.String()
 }
 
-// A document about the term lists above one that mentions it, and a superseded
-// one is not listed at all.
+// A document about the term lists above one that mentions it, a superseded
+// one is never listed, and what replaced it says so.
 func TestFindRanksAboutAboveMentions(t *testing.T) {
 	got := find(t, knowledgeTree(t), "", "drift")
 
@@ -47,24 +47,50 @@ func TestFindRanksAboutAboveMentions(t *testing.T) {
 	if first < 0 || second < 0 || first > second {
 		t.Errorf("want records.drift before eng.apply:\n%s", got)
 	}
-	if strings.Contains(got, "old-drift") {
+	if strings.Contains(got, "records.old-drift  (") {
 		t.Errorf("a superseded document was listed:\n%s", got)
+	}
+	if !strings.Contains(got, "in place of superseded records.old-drift") {
+		t.Errorf("the replacement does not name what it replaces:\n%s", got)
 	}
 	if !strings.Contains(got, ".qm/knowledge/records/drift.md") {
 		t.Errorf("no path to open:\n%s", got)
 	}
 }
 
-func TestFindRequiresEveryTermAndHonoursType(t *testing.T) {
+// A hit shows the line that matched, numbered as it is in the file, so the
+// next step is to open the file there.
+func TestFindShowsTheMatchingLine(t *testing.T) {
+	got := find(t, knowledgeTree(t), "", "detects drift")
+	if !strings.Contains(got, "      9: An apply that detects drift holds.") {
+		t.Errorf("want line 9 of the file:\n%s", got)
+	}
+}
+
+// Every word matching ranks first, and a document holding most of the words
+// still ranks below it and says how many it holds.
+func TestFindRanksFullMatchesFirstAndHonoursType(t *testing.T) {
 	dir := knowledgeTree(t)
-	if got := find(t, dir, "", "drift", "apply"); strings.Contains(got, "records.drift") || !strings.Contains(got, "eng.apply") {
-		t.Errorf("both terms must match:\n%s", got)
+	got := find(t, dir, "", "drift", "apply")
+	if a, d := strings.Index(got, "eng.apply"), strings.Index(got, "records.drift"); a < 0 || d < 0 || a > d {
+		t.Errorf("want eng.apply, which holds both words, first:\n%s", got)
+	}
+	if !strings.Contains(got, "(matches 1 of 2 words)") {
+		t.Errorf("a partial match does not say so:\n%s", got)
 	}
 	if got := find(t, dir, "concept", "drift"); strings.Contains(got, "records.drift") {
 		t.Errorf("--type did not narrow:\n%s", got)
 	}
-	if got := find(t, dir, "", "nosuchterm"); !strings.Contains(got, "nothing matches") {
-		t.Errorf("no-match report missing:\n%s", got)
+}
+
+// Nothing matching sends the agent to other words and the index, never to
+// another checkout.
+func TestFindWithNothingMatching(t *testing.T) {
+	got := find(t, knowledgeTree(t), "", "nosuchterm")
+	for _, want := range []string{"nothing in .qm/knowledge/ matches nosuchterm", "another checkout of the store is not", "index.md"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("no-match report lacks %q:\n%s", want, got)
+		}
 	}
 }
 

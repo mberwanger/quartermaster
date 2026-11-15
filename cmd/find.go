@@ -8,13 +8,13 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/mberwanger/quartermaster/internal/doc"
 	"github.com/mberwanger/quartermaster/internal/plan"
+	"github.com/mberwanger/quartermaster/internal/search"
 )
 
 type findCmd struct {
@@ -28,18 +28,30 @@ func newFindCmd() *findCmd {
 	v := &findCmd{}
 
 	cmd := &cobra.Command{
-		Use:   "find <term>...",
-		Short: "Search the delivered knowledge by id, title, and description",
-		Long: `Search the knowledge tree a sync wrote, and rank what matches.
+		Use:   "find <words>...",
+		Short: "Search the delivered knowledge, and point at the lines that answer",
+		Long: `Search the knowledge tree a sync wrote, rank the documents, and show the
+lines that matched with their line numbers.
 
-Every term must match somewhere, case-insensitively. A hit in the id or title
-outranks one in the description, which outranks one in the path or the body, so
-a document about a thing lists above one that mentions it. A document that has
-been superseded is left out: the one that replaced it is the answer.
+Ask the way you would ask a person: "qm find how should a cli choose an exit
+code" works, and so does a phrase or a heading copied from a document. Filler
+words are dropped, a document that holds most of the words still ranks, a rare
+word counts for more than a common one, and the exact phrase counts for most.
+A match in the id or title outranks one in the description, then a heading,
+then the body.
 
-This is what an agent reaches for instead of grepping the tree. A grep finds
-every mention; this finds the document.`,
-		Example:           "  qm find drift\n  qm find --type record hold apply",
+A superseded document is never listed. When one matches, the document that
+replaced it now, following the whole chain, takes its rank and says so.
+
+Each hit shows the lines that matched, numbered as they are in the file, so
+the next step is to read that file at that line, or run qm show with the id.
+
+The tree is gitignored, so search tools that respect .gitignore never see it.
+This is what to reach for instead of grepping, and never search another
+checkout of the store: it is not what this repository was given.`,
+		Example: "  qm find drift\n" +
+			"  qm find how should a cli choose an exit code\n" +
+			"  qm find --type record hold apply",
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,36 +61,30 @@ every mention; this finds the document.`,
 
 	cmd.Flags().StringVar(&v.dir, "dir", ".", "Repository directory")
 	cmd.Flags().StringVar(&v.docType, "type", "", "Only documents of this type")
-	cmd.Flags().IntVar(&v.top, "top", 20, "How many to show")
+	cmd.Flags().IntVar(&v.top, "top", 10, "How many documents to show")
 
 	v.cmd = cmd
 	return v
 }
 
-// hit is one matching document with the score that ranks it.
-type hit struct {
-	doc.Doc
-	score int
-}
-
-func (v *findCmd) run(out io.Writer, terms []string) error {
-	root := filepath.Join(v.dir, filepath.FromSlash(plan.KnowledgeDir))
-	docs, err := doc.Load(root, nil)
-	if errors.Is(err, fs.ErrNotExist) || isNotDir(err) {
-		return fmt.Errorf("no knowledge tree at %s; run qm sync", plan.KnowledgeDir)
-	}
+func (v *findCmd) run(out io.Writer, typed []string) error {
+	entries, err := loadTree(v.dir)
 	if err != nil {
 		return err
 	}
 
-	hits := search(docs, terms, v.docType)
-	if len(hits) == 0 {
-		fmt.Fprintf(out, "nothing matches %s\n", strings.Join(terms, " "))
-		return nil
-	}
+	res := search.Query(entries, typed, search.Options{Type: v.docType})
 
 	var b strings.Builder
-	shown := hits
+	if len(res.Hits) == 0 {
+		fmt.Fprintf(&b, "nothing in %s/ matches %s.\n", plan.KnowledgeDir, strings.Join(typed, " "))
+		b.WriteString("This tree is everything this repository was given; another checkout of the store is not.\n")
+		fmt.Fprintf(&b, "Try fewer or different words, or read %s/index.md for what each directory holds.\n", plan.KnowledgeDir)
+		_, err = io.WriteString(out, b.String())
+		return err
+	}
+
+	shown := res.Hits
 	if len(shown) > v.top {
 		shown = shown[:v.top]
 	}
@@ -94,83 +100,52 @@ func (v *findCmd) run(out io.Writer, terms []string) error {
 		if d := h.Str("description"); d != "" {
 			fmt.Fprintf(&b, "    %s\n", d)
 		}
-		fmt.Fprintf(&b, "    %s\n", path.Join(plan.KnowledgeDir, h.Path))
+		p := path.Join(plan.KnowledgeDir, h.Path)
+		fmt.Fprintf(&b, "    %s\n", p)
+		for _, l := range h.Lines {
+			fmt.Fprintf(&b, "      %d: %s\n", l.N, l.Text)
+		}
+		if len(h.Replaces) > 0 {
+			names := h.Replaces
+			more := ""
+			if len(names) > 2 {
+				more = fmt.Sprintf(" and %d more", len(names)-2)
+				names = names[:2]
+			}
+			fmt.Fprintf(&b, "    (in place of superseded %s%s, which matched)\n", strings.Join(names, ", "), more)
+		}
+		if h.Matched < len(res.Words) {
+			fmt.Fprintf(&b, "    (matches %d of %d words)\n", h.Matched, len(res.Words))
+		}
 	}
-	if len(hits) > len(shown) {
-		fmt.Fprintf(&b, "%d more; narrow the terms or raise --top\n", len(hits)-len(shown))
+	if len(res.Hits) > len(shown) {
+		fmt.Fprintf(&b, "%d more; narrow the words or raise --top\n", len(res.Hits)-len(shown))
 	}
 
 	_, err = io.WriteString(out, b.String())
 	return err
 }
 
-// search ranks the documents every term matches. Weights put a document that is
-// about the term above one that mentions it: id and title are what a document
-// is, the description is what it is for, and the body is everything it says.
-func search(docs []doc.Doc, terms []string, docType string) []hit {
-	var hits []hit
+// loadTree reads the delivered tree with each document's raw file, so a hit
+// can be numbered by the line an agent will open.
+func loadTree(dir string) ([]search.Entry, error) {
+	root := filepath.Join(dir, filepath.FromSlash(plan.KnowledgeDir))
+	docs, err := doc.Load(root, nil)
+	if errors.Is(err, fs.ErrNotExist) || isNotDir(err) {
+		return nil, fmt.Errorf("no knowledge tree at %s; run qm sync", plan.KnowledgeDir)
+	}
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]search.Entry, 0, len(docs))
 	for _, d := range docs {
-		if d.ID() == "" || superseded(d) {
-			continue
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(d.Path))) //nolint:gosec // path came from walking the tree
+		if err != nil {
+			return nil, err
 		}
-		if docType != "" && d.Str("type") != docType {
-			continue
-		}
-		id := strings.ToLower(d.ID())
-		title := strings.ToLower(d.Str("title"))
-		desc := strings.ToLower(d.Str("description"))
-		p := strings.ToLower(d.Path)
-		body := strings.ToLower(string(d.Prose))
-
-		score := 0
-		for _, t := range terms {
-			t = strings.ToLower(t)
-			s := 0
-			if strings.Contains(id, t) {
-				s += 4
-			}
-			if strings.Contains(title, t) {
-				s += 4
-			}
-			if strings.Contains(desc, t) {
-				s += 2
-			}
-			if strings.Contains(p, t) {
-				s++
-			}
-			if strings.Contains(body, t) {
-				s++
-			}
-			if s == 0 {
-				score = 0
-				break
-			}
-			score += s
-		}
-		if score > 0 {
-			hits = append(hits, hit{Doc: d, score: score})
-		}
+		entries = append(entries, search.NewEntry(d, raw))
 	}
-	sort.SliceStable(hits, func(i, j int) bool {
-		if hits[i].score != hits[j].score {
-			return hits[i].score > hits[j].score
-		}
-		return hits[i].ID() < hits[j].ID()
-	})
-	return hits
-}
-
-// superseded reports whether a document has been replaced, by the field that
-// names its successor or by a status that says so.
-func superseded(d doc.Doc) bool {
-	if d.Str("superseded_by") != "" {
-		return true
-	}
-	switch d.Str("status") {
-	case "superseded", "deprecated", "retired":
-		return true
-	}
-	return false
+	return entries, nil
 }
 
 func isNotDir(err error) bool {

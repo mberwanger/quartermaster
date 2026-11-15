@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/mberwanger/quartermaster/internal/plan"
+	"github.com/mberwanger/quartermaster/internal/repo"
 )
 
 type statusCmd struct {
@@ -55,6 +57,17 @@ func (v *statusCmd) run(out io.Writer) error {
 	var b strings.Builder
 	for _, w := range r.Warnings {
 		fmt.Fprintf(&b, "! %s\n", w)
+	}
+
+	// The hook is how a fresh clone's first session hears about the tree, so
+	// its absence is worth a line every time someone looks.
+	if slices.Contains(r.Targets, "claude") {
+		switch {
+		case !repo.HasSessionHook(v.dir):
+			fmt.Fprintf(&b, "! no session hook in .claude/settings.json; run qm sync --install-hook, then commit it\n")
+		case repo.SessionHookIgnored(v.dir):
+			fmt.Fprintf(&b, "! .gitignore covers .claude/settings.json, so the session hook is in this checkout only; un-ignore that file to share it\n")
+		}
 	}
 
 	fmt.Fprintf(&b, "targets:  %s\n", strings.Join(r.Targets, ", "))
