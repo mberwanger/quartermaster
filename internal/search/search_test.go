@@ -189,3 +189,39 @@ func TestQueryRetiredByStatusAlone(t *testing.T) {
 		t.Errorf("want nothing, got %v", ids(got))
 	}
 }
+
+// An alias is a word a reader searches for when a document is the answer. A
+// document that names "rollback" only as an alias outranks one that discusses
+// rollbacks at length, and the hit says which alias matched.
+func TestQueryRanksAnAliasLikeATitle(t *testing.T) {
+	es := []Entry{
+		entry("records/migration.md", map[string]any{"id": "records.migration", "title": "A migration is read by the release before it"},
+			"A rollback runs the release before. Rollback is safe. Every rollback works. A rollback again.\n"),
+		entry("product/positioning.md", map[string]any{"id": "product.positioning", "title": "Positioning", "aliases": []any{"rollback", "roll back", "undo"}},
+			"| revert | applying an earlier change again. Never rolls back in place |\n"),
+	}
+	for _, q := range []string{"rollback", "roll back", "undo"} {
+		res := Query(es, []string{q}, Options{})
+		if len(res.Hits) == 0 || res.Hits[0].ID() != "product.positioning" {
+			t.Errorf("%q: want product.positioning first, got %v", q, ids(res.Hits))
+			continue
+		}
+		if res.Hits[0].Alias == "" {
+			t.Errorf("%q: the hit does not say which alias matched", q)
+		}
+	}
+	// A document without aliases ranks as it always did.
+	if got := ids(Query(es[:1], []string{"rollback"}, Options{}).Hits); len(got) != 1 {
+		t.Errorf("want the migration record alone, got %v", got)
+	}
+}
+
+// An aliases field of the wrong shape yields no aliases rather than an error.
+func TestAliasesToleratesAWrongShape(t *testing.T) {
+	for _, v := range []any{"rollback", 3, []any{1, " ", "undo"}} {
+		got := Aliases(doc.Doc{Frontmatter: map[string]any{"aliases": v}})
+		if len(got) > 1 || (len(got) == 1 && got[0] != "undo") {
+			t.Errorf("Aliases(%v) = %v", v, got)
+		}
+	}
+}

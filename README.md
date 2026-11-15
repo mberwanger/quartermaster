@@ -133,6 +133,12 @@ in the id or title outranks one in the description, then a heading, then the bod
 hit shows the lines that matched, numbered as they are in the file. A superseded document
 is never listed; the document that replaced it takes its rank and says so.
 
+A document may carry `aliases:` in its frontmatter: words a reader searches for when it is
+the answer, though it does not use them as its own term. A glossary that says "we call it a
+revert, never a rollback" is the case. `find` ranks an alias match like a title match and
+says which alias matched. Aliases are written by a person, so the search stays
+deterministic.
+
 `qm show` prints a document by id, by the link other documents use for it
 (`/growth/aeo.md`), or by a directory, which prints its `index.md`. A superseded document
 prints its replacement, following the chain to the end.

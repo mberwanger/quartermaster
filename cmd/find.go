@@ -37,8 +37,10 @@ Ask the way you would ask a person: "qm find how should a cli choose an exit
 code" works, and so does a phrase or a heading copied from a document. Filler
 words are dropped, a document that holds most of the words still ranks, a rare
 word counts for more than a common one, and the exact phrase counts for most.
-A match in the id or title outranks one in the description, then a heading,
-then the body.
+A match in the id, the title, or an alias outranks one in the description,
+then a heading, then the body. An alias is a word a person wrote in the
+document's aliases field because readers search for it when that document is
+the answer, though the document does not use it as its own term.
 
 A superseded document is never listed. When one matches, the document that
 replaced it now, following the whole chain, takes its rank and says so.
@@ -104,6 +106,9 @@ func (v *findCmd) run(out io.Writer, typed []string) error {
 		fmt.Fprintf(&b, "    %s\n", p)
 		for _, l := range h.Lines {
 			fmt.Fprintf(&b, "      %d: %s\n", l.N, l.Text)
+		}
+		if h.Alias != "" {
+			fmt.Fprintf(&b, "    (matched its alias %q)\n", h.Alias)
 		}
 		if len(h.Replaces) > 0 {
 			names := h.Replaces
