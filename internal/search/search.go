@@ -55,6 +55,9 @@ type Hit struct {
 	// Replaces names superseded documents that matched and handed this one
 	// their rank, so a reader who asked by the old name sees why it is here.
 	Replaces []string
+	// Alias is the alias that matched, when one did, so a reader who searched
+	// a word the document does not use as its own sees why it is here.
+	Alias string
 }
 
 // Result is everything one query found.
@@ -70,11 +73,15 @@ type Options struct {
 	Type string
 }
 
-// Field weights. What a document is (id, title) outranks what it is for (the
-// description), which outranks its section headings, which outrank a mention.
+// Field weights. What a document is (id, title, and the aliases a person wrote
+// for it) outranks what it is for (the description), which outranks its section
+// headings, which outrank a mention.
 const (
 	wID    = 4.0
 	wTitle = 4.0
+	// An alias is a word a reader searches for when this document is the
+	// answer, which is what a title is for.
+	wAlias = wTitle
 	wDesc  = 2.0
 	wHead  = 2.0
 	wPath  = 1.0
@@ -179,6 +186,7 @@ func rank(hits []Hit) {
 // fields is one document lowered and split, ready to match against.
 type fields struct {
 	id, title, desc, path string
+	aliases               []string
 	heads                 []Line
 	body                  []Line
 	prose                 string
@@ -191,6 +199,14 @@ func index(e Entry) fields {
 		desc:  strings.ToLower(e.Str("description")),
 		path:  strings.ToLower(e.Path),
 		prose: strings.ToLower(string(e.Prose)),
+	}
+	for _, a := range Aliases(e.Doc) {
+		// Normalizing folds punctuation away, so "C++" would become "c" and
+		// claim every search for a single letter. An alias that keeps fewer
+		// than two characters names nothing a reader would search for.
+		if n := normalize(a); len([]rune(n)) >= 2 {
+			f.aliases = append(f.aliases, n)
+		}
 	}
 	inFence := false
 	for i, l := range strings.Split(string(e.Prose), "\n") {
@@ -218,7 +234,7 @@ func inverseFrequency(idx []fields, words []string) map[string]float64 {
 	for _, w := range words {
 		df := 0
 		for _, f := range idx {
-			if contains(f.id, w) || contains(f.title, w) || contains(f.desc, w) || contains(f.prose, w) {
+			if contains(f.id, w) || contains(f.title, w) || contains(f.desc, w) || contains(f.prose, w) || aliasWeight(f.aliases, w) > 0 {
 				df++
 			}
 		}
@@ -233,7 +249,9 @@ func score(e Entry, f fields, words []string, phrase string, idf map[string]floa
 	for _, w := range words {
 		s := 0.0
 		s += wID * weight(f.id, w)
-		s += wTitle * weight(f.title, w)
+		// The title and the aliases are one field: a word earns the better of
+		// the two, never both, so repeating the title as an alias buys nothing.
+		s += max(wTitle*weight(f.title, w), wAlias*aliasWeight(f.aliases, w))
 		s += wDesc * weight(f.desc, w)
 		s += wPath * weight(f.path, w)
 		for _, l := range f.heads {
@@ -263,9 +281,18 @@ func score(e Entry, f fields, words []string, phrase string, idf map[string]floa
 	coverage := float64(h.Matched) / float64(len(words))
 	total *= coverage * coverage
 
-	if titleHoldsAll(f.title, typedWords(phrase, words)) {
+	typedAll := typedWords(phrase, words)
+	h.Alias = bestAlias(f.aliases, words)
+
+	switch {
+	// A title, or an alias, that holds every typed word is naming the
+	// document. The same rule applies to both, so an alias never ranks above
+	// a title that says the same thing.
+	case titleHoldsAll(f.title, typedAll):
 		total += wPhraseTitle * float64(len(words))
-	} else if phrase != "" {
+	case anyHoldsAll(f.aliases, typedAll):
+		total += wPhraseTitle * float64(len(words))
+	case phrase != "":
 		switch {
 		case strings.Contains(f.title, phrase) || strings.Contains(f.id, strings.ReplaceAll(phrase, " ", "-")):
 			total += wPhraseTitle * float64(len(words))
@@ -279,6 +306,55 @@ func score(e Entry, f fields, words []string, phrase string, idf map[string]floa
 	h.Score = total
 	h.Lines = best(f, words, phrase)
 	return h, true
+}
+
+// Aliases returns a document's aliases: the words a reader searches for when
+// this document is the answer, written by a person in the aliases field. A
+// field of the wrong shape yields none rather than an error, because the
+// store's schema, not the search, is what refuses it.
+func Aliases(d doc.Doc) []string {
+	list, _ := d.Frontmatter["aliases"].([]any)
+	var out []string
+	for _, v := range list {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// bestAlias is the alias that earned the most, the one aliasWeight scored, so
+// the hit names the alias that actually put the document where it is.
+func bestAlias(aliases, words []string) string {
+	best, at := 0.0, ""
+	for _, a := range aliases {
+		got := 0.0
+		for _, w := range words {
+			got += weight(a, w)
+		}
+		if got > best {
+			best, at = got, a
+		}
+	}
+	return at
+}
+
+func anyHoldsAll(aliases, words []string) bool {
+	for _, a := range aliases {
+		if titleHoldsAll(a, words) {
+			return true
+		}
+	}
+	return false
+}
+
+// aliasWeight is how strongly the best of a document's aliases holds a word.
+func aliasWeight(aliases []string, w string) float64 {
+	best := 0.0
+	for _, a := range aliases {
+		best = max(best, weight(a, w))
+	}
+	return best
 }
 
 // typedWords is every word typed, filler included, because a title that holds
