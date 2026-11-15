@@ -358,8 +358,8 @@ func aliasWeight(aliases []string, w string) float64 {
 }
 
 // typedWords is every word typed, filler included, because a title that holds
-// "what", "is" and "admiral" is the answer to "what is admiral" in a way a
-// title that only holds "admiral" is not.
+// "what", "is" and "acme" is the answer to "what is acme" in a way a
+// title that only holds "acme" is not.
 func typedWords(phrase string, words []string) []string {
 	if phrase == "" {
 		return words
@@ -487,7 +487,7 @@ func IsSuperseded(d doc.Doc) bool {
 
 // Words turns what was typed into the words to match and the phrase they form.
 // Filler is dropped unless nothing else is left, a word keeps the dots and
-// hyphens inside it (state.admiral.io, auto-merge), and the phrase is the
+// hyphens inside it (api.example.com, auto-merge), and the phrase is the
 // typed text with punctuation folded to spaces.
 func Words(typed []string) ([]string, string) {
 	raw := strings.Fields(normalize(strings.Join(typed, " ")))

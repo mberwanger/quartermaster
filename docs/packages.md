@@ -16,7 +16,7 @@ A repository declares four kinds of delivery using three different idioms.
 
 ```yaml
 bundles:
-  - source: oci://ghcr.io/admiral/knowledge:v1
+  - source: oci://ghcr.io/example/knowledge:v1
     rulesets: [voice]                          # a name, resolved store-side
     skills:   [engineering.skills.gcp-expert]  # raw document ids
     agents:   [agents.code-reviewer]           # raw document ids

@@ -12,3 +12,7 @@ Copy this file to start a new document. Replace the frontmatter, and set the
 status to stable once it is ratified by a merge.
 
 Keep to one topic. State the point, then support it.
+
+Add `aliases:` only for words a reader searches for when this document is the
+answer but that it deliberately does not use, such as the name it tells
+readers not to say. An alias is not a keyword list, and never a common word.
