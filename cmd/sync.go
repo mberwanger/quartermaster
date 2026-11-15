@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -18,9 +20,11 @@ import (
 )
 
 type syncCmd struct {
-	cmd   *cobra.Command
-	dir   string
-	quiet bool
+	cmd         *cobra.Command
+	dir         string
+	quiet       bool
+	session     bool
+	installHook bool
 }
 
 func newSyncCmd() *syncCmd {
@@ -46,19 +50,38 @@ reproducible from the manifest, so it is safe to delete and regenerate.`,
 
 	cmd.Flags().StringVar(&v.dir, "dir", ".", "Repository directory to sync")
 	cmd.Flags().BoolVar(&v.quiet, "quiet", false, "Suppress the summary output")
+	cmd.Flags().BoolVar(&v.installHook, "install-hook", false, "Write the Claude Code session hook into .claude/settings.json if it is missing")
+	cmd.Flags().BoolVar(&v.session, "session", false, "Run as an agent session's start hook: never fail, and print a note for the agent about the tree")
 
 	v.cmd = cmd
 	return v
 }
 
 func (v *syncCmd) run(out io.Writer) error {
-	return syncRepo(v.dir, out, v.quiet)
+	if v.session {
+		sessionSync(v.dir, out)
+		return nil
+	}
+	return syncRepoWith(v.dir, out, syncOptions{quiet: v.quiet, installHook: v.installHook})
 }
 
 // syncRepo resolves the manifest in dir, materializes it, prunes what a prior
 // sync produced but this one does not, and records the new state. It is shared
 // by qm sync and qm init.
 func syncRepo(dir string, out io.Writer, quiet bool) error {
+	return syncRepoWith(dir, out, syncOptions{quiet: quiet})
+}
+
+// syncOptions are what differ between a sync a person runs and one a hook
+// runs.
+type syncOptions struct {
+	quiet bool
+	// installHook writes the session hook where there is none.
+	installHook bool
+}
+
+func syncRepoWith(dir string, out io.Writer, o syncOptions) error {
+	quiet := o.quiet
 	migrated, err := repo.Migrate(dir)
 	if err != nil {
 		return err
@@ -79,6 +102,30 @@ func syncRepo(dir string, out io.Writer, quiet bool) error {
 	r, err := plan.Compute(dir)
 	if err != nil {
 		return err
+	}
+
+	// The session hook is how a fresh clone's first session hears about the
+	// tree, so a sync a person runs keeps it current: it upgrades a hook an
+	// earlier release wrote, and installs one only when asked, so a hook
+	// somebody removed on purpose stays removed. A quiet sync, which a hook
+	// runs at session start or on checkout, never writes the committed
+	// settings file, because nobody would see the change. Nothing here stops
+	// the knowledge from syncing: a settings file that does not parse is
+	// reported and left alone.
+	if !quiet && slices.Contains(r.Targets, "claude") {
+		settings := filepath.Join(".claude", "settings.json")
+		switch {
+		case repo.HasSessionHook(dir) || o.installHook:
+			wrote, err := repo.InstallSessionHook(dir)
+			switch {
+			case err != nil:
+				fmt.Fprintf(out, "! left the session hook alone: %v\n", err)
+			case wrote:
+				fmt.Fprintf(out, "wrote the session hook in %s; commit it\n", settings)
+			}
+		default:
+			fmt.Fprintf(out, "! no session hook in %s; run qm sync --install-hook and commit it, so a fresh clone's first session finds the knowledge\n", settings)
+		}
 	}
 
 	prior, err := state.Load(dir)

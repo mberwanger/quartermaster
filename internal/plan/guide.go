@@ -39,6 +39,13 @@ func (k *knowledgeTree) add(storePath string) {
 // sync rather than written by hand so it cannot describe a tree that is not
 // there.
 //
+// Having the guide was not enough on its own. An agent that read it still
+// grepped, because it said find searched only ids, titles and descriptions,
+// which read as useless for a phrase, and because the tree is gitignored, so
+// the agent's grep came back empty and it went to a sibling checkout. The
+// guide now gives an order to follow rather than a description of tools, says
+// why a grep of the repository finds nothing, and names the dead end.
+//
 // How current the tree is depends on the manifest, so the guide says which it
 // is rather than promising one. A source that names a tag follows it, and every
 // sync moves the tree to what the store published last. A source pinned by
@@ -79,8 +86,14 @@ func guide(bundles []state.Bundle, tree knowledgeTree) target.Doc {
 	}
 	b.WriteString("\n")
 
-	b.WriteString("Every document carries frontmatter with an `id`, a `title`, a `description`, a `type`, and a `status`. Each directory's `index.md` lists what it holds with descriptions, so read that before opening documents one by one. `qm find <term>` searches ids, titles, and descriptions across the tree and skips superseded documents; `--type` narrows it to one kind. A document that names a `superseded_by` is history: read the one it names instead.\n\n")
-
+	b.WriteString("## Finding something in it\n\n")
+	b.WriteString("Look here first for anything about how this organization builds, decides, names or writes, before answering from memory and before any other search.\n\n")
+	b.WriteString("1. `qm find <words>`. Ask it the way you would ask a person, or paste a phrase or a heading. It searches ids, titles, descriptions, headings and bodies, ranks the documents, and shows the lines that matched with their line numbers. A document that holds most of the words still ranks, so a question works as well as a keyword. If nothing fits, try other words before anything else.\n")
+	b.WriteString("2. `qm show <id>` prints a document. It also takes the links documents use for each other, such as `/growth/aeo.md`, and a directory, which prints its `index.md`. A superseded document is never the answer: `find` ranks what replaced it in its place, and `show` prints the replacement and says so.\n")
+	fmt.Fprintf(&b, "3. Grep only as a last step, and only by naming `%s/` as the path. The tree is gitignored, so a search tool that respects `.gitignore` skips it and reports nothing.\n\n", KnowledgeDir)
+	b.WriteString("Never read another checkout of the store, a sibling directory, a branch or an archive. It may be ahead of or behind what this repository was given, and its superseded documents read as current.\n\n")
+	b.WriteString("A sync runs when a session opens, and the session's first note says whether it worked. If that note says the refresh failed, use the tree as it is, tell the person, and run `qm sync` once they say access is fixed. There is no need to sync on a timer.\n\n")
+	b.WriteString("Every document carries frontmatter with an `id`, a `title`, a `description`, a `type`, and a `status`, and each directory's `index.md` lists what it holds. `--type` narrows `qm find` to one kind of document.\n\n")
 	b.WriteString("Delivered from:\n\n")
 	for _, bd := range bundles {
 		fmt.Fprintf(&b, "- `%s`", bd.Source)

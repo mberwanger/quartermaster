@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -26,10 +27,18 @@ const sessionHookEvent = "SessionStart"
 // to run a sync happened to pull. A cached digest makes a no-change sync one
 // resolve against the registry; the files are rewritten only when it moved.
 //
+// --session is what makes the hook tell the session about the tree. The
+// harness adds a session hook's output to the agent's context, so the first
+// session in a fresh clone hears where the knowledge is and how to search it
+// even before it reads a rule, and a sync that could not reach the store says
+// so instead of failing with a registry error nobody acts on.
+//
 // The guard is the same one the git hooks use. This file is committed, so it
 // reaches people who have never installed Quartermaster, and for them the hook
 // has to be silently inert rather than an error at the start of every session.
-const sessionHookCommand = "command -v qm >/dev/null 2>&1 && qm sync --quiet"
+// The fallback is for a teammate whose qm predates --session: their release
+// rejects the flag, and the plain quiet sync still runs.
+const sessionHookCommand = "command -v qm >/dev/null 2>&1 && (qm sync --session 2>/dev/null || qm sync --quiet)"
 
 // sessionHookMark identifies our hook inside a settings file somebody else also
 // edits. Matching on the command rather than on a marker comment is what makes
@@ -37,7 +46,8 @@ const sessionHookCommand = "command -v qm >/dev/null 2>&1 && qm sync --quiet"
 const sessionHookMark = "qm sync"
 
 // InstallSessionHook adds the session hook to the repository's Claude Code
-// settings, and reports whether it wrote anything.
+// settings, or brings one an older release wrote up to date, and reports
+// whether it wrote anything.
 //
 // It is idempotent and additive. An existing settings file keeps its contents,
 // its key order, and any hooks somebody else configured, including other hooks
@@ -69,17 +79,28 @@ func InstallSessionHook(dir string) (bool, error) {
 			return false, fmt.Errorf("%s: hooks.%s: %w", claudeSettings, sessionHookEvent, err)
 		}
 	}
-	for _, e := range entries {
-		if bytes.Contains(e, []byte(sessionHookMark)) {
-			return false, nil
-		}
-	}
-
 	entry, err := marshal(hookEntry{Hooks: []hookCommand{{Type: "command", Command: sessionHookCommand}}})
 	if err != nil {
 		return false, err
 	}
-	entries = append(entries, entry)
+
+	found := false
+	for i, e := range entries {
+		if !bytes.Contains(e, []byte(sessionHookMark)) {
+			continue
+		}
+		found = true
+		// An entry an earlier release wrote is brought up to date. One
+		// somebody shaped by hand, or a command of their own, stays as it is.
+		if !ours(e) {
+			return false, nil
+		}
+		entries[i] = entry
+		break
+	}
+	if !found {
+		entries = append(entries, entry)
+	}
 
 	encoded, err := marshal(entries)
 	if err != nil {
@@ -102,6 +123,32 @@ func InstallSessionHook(dir string) (bool, error) {
 		return false, err
 	}
 	return true, os.WriteFile(path, append(out, '\n'), 0o644) //nolint:gosec // settings are committed and read by other tools
+}
+
+// priorSessionHookCommands are the commands earlier releases installed. Only
+// an entry carrying exactly one of these is upgraded: anything else that
+// mentions qm sync is a person's own command and stays theirs.
+var priorSessionHookCommands = []string{
+	"command -v qm >/dev/null 2>&1 && qm sync --quiet",
+}
+
+// ours reports whether an entry is one an earlier release wrote: a single
+// hook of exactly type and command, with a command that release installed. A
+// timeout, a matcher or any other key means a person shaped it.
+func ours(e json.RawMessage) bool {
+	var shape map[string]json.RawMessage
+	if err := json.Unmarshal(e, &shape); err != nil || len(shape) != 1 || shape["hooks"] == nil {
+		return false
+	}
+	var hooks []map[string]json.RawMessage
+	if err := json.Unmarshal(shape["hooks"], &hooks); err != nil || len(hooks) != 1 || len(hooks[0]) != 2 {
+		return false
+	}
+	var typ, command string
+	if json.Unmarshal(hooks[0]["type"], &typ) != nil || json.Unmarshal(hooks[0]["command"], &command) != nil || typ != "command" {
+		return false
+	}
+	return slices.Contains(priorSessionHookCommands, command)
 }
 
 // hookEntry and hookCommand shape one hook the way the harness documents it,

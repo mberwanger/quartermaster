@@ -67,7 +67,8 @@ repository that consumes it.
 | `qm sync` | Resolve, write the files, remove what no longer applies |
 | `qm verify` | Fail if generated files were edited or went stale |
 | `qm status` | Show what resolves today, and how much is always loaded |
-| `qm find <term>` | Search the delivered knowledge by id, title, and description |
+| `qm find <words>` | Search the delivered knowledge, and show the lines that answer |
+| `qm show <id\|link>` | Print a delivered document, following what superseded it |
 | `qm targets` | List the agent tools this build can write for |
 
 ## How it works
@@ -125,9 +126,26 @@ packages they came from, and how to search. It tells the agent to read the deliv
 rather than another checkout of the store, and that the copy is current because the hooks
 keep it so.
 
-`qm find <term>` is the search it names. Every term must match; a hit in the id or title
-outranks one in the description, which outranks one in the body; a superseded document is
-left out. A grep finds every mention, this finds the document.
+`qm find <words>` is the search it names. It takes a question as readily as a keyword:
+filler words are dropped, a document holding most of the words still ranks, a rare word
+counts for more than a common one, and an exact phrase or a heading counts for most. A hit
+in the id or title outranks one in the description, then a heading, then the body. Each
+hit shows the lines that matched, numbered as they are in the file. A superseded document
+is never listed; the document that replaced it takes its rank and says so.
+
+`qm show` prints a document by id, by the link other documents use for it
+(`/growth/aeo.md`), or by a directory, which prints its `index.md`. A superseded document
+prints its replacement, following the chain to the end.
+
+The tree is gitignored, so a search tool that respects `.gitignore` never sees it. The
+guide says so, because an agent whose grep came back empty went looking in a sibling
+checkout of the store instead.
+
+The session hook runs `qm sync --session`. The harness adds its output to the agent's
+context, so the first session in a fresh clone hears where the tree is and how to search
+it before it has read a rule. It never fails the session: when the store cannot be
+reached, as on a machine not signed in to the registry, it says so and the tree already on
+disk stays in use.
 
 ## Taking only the knowledge you need
 

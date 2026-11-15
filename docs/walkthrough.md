@@ -126,8 +126,13 @@ cat "$REPO/.claude/settings.json"
   exist because generated output is gitignored, so git will not update it when
   you switch branches, and a branch pinning a different digest would otherwise
   leave you with stale rules and no signal.
-- **`.claude/settings.json`** gains a `SessionEnd` hook. It is guarded with
-  `command -v qm`, so it is inert for anyone who has not installed the tool.
+- **`.claude/settings.json`** gains a `SessionStart` hook that runs
+  `qm sync --session`, and tells the agent where the tree is and how to search
+  it. It is guarded with `command -v qm`, so it is inert for anyone who has not
+  installed the tool, and it never fails a session. Commit this file and keep
+  personal settings in `.claude/settings.local.json`. A repository set up
+  before the hook existed gets it with `qm sync --install-hook`; `qm sync` and
+  `qm status` say when it is missing. A sync a hook runs never edits this file.
 
 ---
 

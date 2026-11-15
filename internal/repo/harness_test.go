@@ -62,8 +62,49 @@ func TestInstallSessionHookIsIdempotent(t *testing.T) {
 	if got := readSettings(t, dir); got != first {
 		t.Errorf("second run changed the file:\n%s", got)
 	}
-	if n := strings.Count(first, sessionHookMark); n != 1 {
+	if n := strings.Count(first, `"command": "`); n != 1 {
 		t.Errorf("hook appears %d times, want 1", n)
+	}
+}
+
+// A hook an older release wrote is brought up to the current command in
+// place, and one a person shaped by hand is left alone.
+func TestInstallSessionHookUpgradesAnOlderOne(t *testing.T) {
+	const old = "command -v qm >/dev/null 2>&1 && qm sync --quiet"
+	for _, tt := range []struct {
+		name, settings string
+		wrote          bool
+		want           string
+	}{
+		{"older command", `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"` + old + `"}]}]}}`, true, sessionHookCommand},
+		{"current command", `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"` + sessionHookCommand + `"}]}]}}`, false, sessionHookCommand},
+		{"a timeout set by hand", `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"` + old + `","timeout":30}]}]}}`, false, `"timeout"`},
+		{"a command of their own", `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"cd tools && qm sync --dir ../other"}]}]}}`, false, "cd tools"},
+		{"shaped by hand", `{"hooks":{"SessionStart":[{"matcher":"startup","hooks":[{"type":"command","command":"` + old + `"}]}]}}`, false, old},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, claudeSettings), []byte(tt.settings), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			wrote, err := InstallSessionHook(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if wrote != tt.wrote {
+				t.Errorf("wrote = %v, want %v", wrote, tt.wrote)
+			}
+			body := readSettings(t, dir)
+			if !strings.Contains(body, tt.want) {
+				t.Errorf("want %q in:\n%s", tt.want, body)
+			}
+			if n := strings.Count(body, `"command": "`) + strings.Count(body, `"command":"`); n != 1 {
+				t.Errorf("hook appears %d times, want 1:\n%s", n, body)
+			}
+		})
 	}
 }
 

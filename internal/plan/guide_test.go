@@ -38,8 +38,11 @@ func TestGuideDescribesTheDeliveredTree(t *testing.T) {
 		"`file://" + store + "`, following the newest",
 		"packages core",
 		"moves it to the store's newest published version",
-		"qm find",
-		"run `qm sync`",
+		"`qm find <words>`",
+		"`qm show <id>`",
+		"gitignored",
+		"Never read another checkout of the store",
+		"run `qm sync` once they say access is fixed",
 	} {
 		if !strings.Contains(string(rule), want) {
 			t.Errorf("guide lacks %q:\n%s", want, rule)
